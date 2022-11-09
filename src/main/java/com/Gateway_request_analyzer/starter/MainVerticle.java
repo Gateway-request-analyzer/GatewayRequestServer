@@ -9,6 +9,10 @@ import io.vertx.ext.web.Router;
 public class MainVerticle extends AbstractVerticle {
   @Override
   public void start() throws Exception {
+
+    //not done, need to read more
+    vertx.deployVerticle(new GRAVerticle());
+
     // Create a Router
     Router router = Router.router(vertx);
 
