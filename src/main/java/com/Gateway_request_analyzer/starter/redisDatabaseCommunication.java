@@ -4,10 +4,12 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import redis.clients.jedis.*;
 
-import java.util.Set;
+
 
 
 public class redisDatabaseCommunication {
+
+  //Allow for rate limiting on IP, user identifier, and user session
 
 
  public static void main(String[] args) {
@@ -18,12 +20,14 @@ public class redisDatabaseCommunication {
 // prints out "Connection Successful" if Java successfully connects to Redis server.
      System.out.println("Connection Successful");
      System.out.println("The server is running " + jedis.ping());
-     jedis.set("company-name", "500Rockets.io");
-     System.out.println("Stored string in redis:: " + jedis.get("company-name"));
+     jedis.hset("client", "ip", "123");
+     jedis.hset("client", "userID", "it's me");
+     jedis.hset("client", "session", "1");
+
+
+     //System.out.println("Stored strings in redis:: " + jedis.hgetAll("client"));
    } catch (Exception e) {
      e.printStackTrace();
    }
-
-
  }
 }
