@@ -7,7 +7,11 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="starter" />
+        <module name="GatewayRequestServer" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="GatewayRequestServer" target="11" />
+    </bytecodeTargetLevel>
   </component>
 </project>
