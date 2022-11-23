@@ -2,15 +2,20 @@ package com.Gateway_request_analyzer.starter;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.ServerWebSocket;
+import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 
 public class GRAserver {
 
   Vertx vertx;
+  RedisHandler redisHandler;
+  ServerWebSocket socket;
 
   public GRAserver(Vertx vertx){
     this.vertx = vertx;
+    this.redisHandler = new RedisHandler();
     this.createServer();
   }
 
@@ -20,13 +25,12 @@ public class GRAserver {
     vertx.createHttpServer().webSocketHandler(handler -> {
       System.out.println("Client connected: " + handler.textHandlerID());
 
+      socket = handler;
 
       handler.binaryMessageHandler(msg -> {
         JsonObject json = (JsonObject) Json.decodeValue(msg);
-
-        Event event = new Event(vertx, json);
-        event.handleRequest();
-
+        Event event = new Event(json);
+        redisHandler.eventRequest(event, socket);
       });
 
       handler.closeHandler(msg -> {
