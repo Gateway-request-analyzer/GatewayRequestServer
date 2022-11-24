@@ -4,21 +4,36 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import redis.clients.jedis.Jedis;
 
 import java.util.Objects;
 
 public class RedisHandler {
+
+  private static Jedis jedis;
   // socket is used to communicate back on the open connection with client
-  ServerWebSocket socket;
+  private ServerWebSocket socket;
   //put jedis and other useful globals
+  private Event event;
+
+  public RedisHandler() {
+    //set up jedis connection with port 6379
+    try {
+      this.jedis = new Jedis("http://localhost:6379/");
+    } catch (Exception e ){
+      e.printStackTrace();
+    }
+  }
 
   public void eventRequest(Event event, ServerWebSocket socket){
+    this.event = event;
     // Connection established to client
     this.socket = socket;
 
     // all the parameters for current event is available in event object
     // prints the IP of the event
-    System.out.println(event.getIp());
+    jedis.setnx(event.getIp(), "0");
+    jedis.get(event.getIp());
 
     //TODO: do redis stuff with event
 
@@ -54,4 +69,7 @@ public class RedisHandler {
     // Might be appropriate to do in a different class
 
   }
+
+
+
 }

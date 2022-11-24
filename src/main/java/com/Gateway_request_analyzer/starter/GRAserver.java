@@ -21,7 +21,6 @@ public class GRAserver {
 
   public void createServer(){
 
-
     vertx.createHttpServer().webSocketHandler(handler -> {
       System.out.println("Client connected: " + handler.textHandlerID());
 
@@ -30,6 +29,7 @@ public class GRAserver {
       handler.binaryMessageHandler(msg -> {
         JsonObject json = (JsonObject) Json.decodeValue(msg);
         Event event = new Event(json);
+
         redisHandler.eventRequest(event, socket);
       });
 
