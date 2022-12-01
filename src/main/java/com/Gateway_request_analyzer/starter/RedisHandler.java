@@ -11,8 +11,6 @@ import java.util.Objects;
 public class RedisHandler {
 
   private static Jedis jedis;
-  // socket is used to communicate back on the open connection with client
-  ServerWebSocket socket;
   //put jedis and other useful globals
   private Event event;
 
@@ -25,7 +23,7 @@ public class RedisHandler {
     }
   }
 
-  public void eventRequest(Event event, ServerWebSocket socket){
+  public void eventRequest(Event event){
     this.event = event;
     // Connection established to client
     // all the parameters for current event is available in event object
@@ -42,8 +40,6 @@ public class RedisHandler {
   private void pubsubHandler(){
     // TODO: handle pub/sub redis
     // Might be appropriate to do in a different class
-
-
 
     GRAserver.notifyClients("OK");
   }
