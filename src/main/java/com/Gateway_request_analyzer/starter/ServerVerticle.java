@@ -11,8 +11,8 @@ public class ServerVerticle extends AbstractVerticle {
 
   @Override
   public void start() throws Exception{
-
-    GRAserver server = new GRAserver(vertx);
+    RedisHandler redisHandler = new RedisHandler();
+    GRAserver server = new GRAserver(vertx, redisHandler);
 
 
   }

@@ -9,6 +9,8 @@ import io.vertx.core.json.JsonObject;
 public class Event {
   private String ip, userId, session, URI;
 
+  //toJson, DecodeJson in this class
+
   public Event(JsonObject json) {
     this.ip = json.getString("ip");
     this.userId = json.getString("userId");

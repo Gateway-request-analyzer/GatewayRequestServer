@@ -12,7 +12,7 @@ public class RedisHandler {
 
   private static Jedis jedis;
   // socket is used to communicate back on the open connection with client
-  private ServerWebSocket socket;
+  ServerWebSocket socket;
   //put jedis and other useful globals
   private Event event;
 
@@ -28,8 +28,6 @@ public class RedisHandler {
   public void eventRequest(Event event, ServerWebSocket socket){
     this.event = event;
     // Connection established to client
-    this.socket = socket;
-
     // all the parameters for current event is available in event object
     // prints the IP of the event
     jedis.setnx(event.getIp(), "0");
@@ -37,39 +35,16 @@ public class RedisHandler {
 
     //TODO: do redis stuff with event
 
-    //TODO: return appropriate response
-
-    serverResponse("OK");
-  }
-
-  private void serverResponse(String response){
-    if(Objects.equals(response, "OK")){
-
-      System.out.println("Request was valid");
-      System.out.println("No action taken");
-
-      //creates JsonObject to be returned to client
-      JsonObject json = new JsonObject();
-      json.put("Action", "None");
-
-      Buffer buf = Json.encodeToBuffer(json);
-      socket.writeBinaryMessage(buf);
-
-    }else {
-      JsonObject json = new JsonObject();
-      json.put("Action", response);
-
-      Buffer buf = Json.encodeToBuffer(json);
-      socket.writeBinaryMessage(buf);
-    }
+    //this is supposed to be called when notified from pubsub
+    GRAserver.notifyClients("OK");
   }
 
   private void pubsubHandler(){
     // TODO: handle pub/sub redis
     // Might be appropriate to do in a different class
 
+
+
+    GRAserver.notifyClients("OK");
   }
-
-
-
 }
