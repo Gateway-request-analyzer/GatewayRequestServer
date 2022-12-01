@@ -38,6 +38,14 @@
 
   <dependencies>
 
+    <!-- redis client for vertx (?)-->
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-redis-client</artifactId>
+      <version>4.3.5</version>
+    </dependency>
+
+    <!-- might not need -->
     <dependency>
       <groupId>io.lettuce</groupId>
       <artifactId>lettuce-core</artifactId>
