@@ -7,7 +7,7 @@ public class EventHandler {
   private Vertx vertx;
   private HttpClient client;
 
-  void EventHandler(Vertx vertx){
+  void EventHander(Vertx vertx){
     this.vertx = vertx;
     this.client = vertx.createHttpClient();
   }
