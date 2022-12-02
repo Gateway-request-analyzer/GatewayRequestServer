@@ -2,8 +2,11 @@ package com.Gateway_request_analyzer.starter;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.redis.client.Redis;
+import io.vertx.redis.client.RedisAPI;
+import io.vertx.redis.client.RedisConnection;
 import redis.clients.jedis.*;
 
 
@@ -16,26 +19,34 @@ public class redisDatabaseCommunication {
   private static int epoch_ms;
   private static Pipeline pipe;*/
   private Vertx vertx;
+  private static Redis client;
+  private static RedisAPI redis;
 
   public redisDatabaseCommunication() {
     vertx = Vertx.vertx();
     try {
-      Redis.createClient(
+       client = Redis.createClient(
           vertx,
           // The client handles REDIS URLs. The select database as per spec is the
           // numerical path of the URL and the password is the password field of
           // the URL authority
-          "redis://:@localhost:6379/1")
-        .connect()
+          "redis://:@localhost:6379/1");
+        client.connect()
         .onSuccess(conn -> {
           System.out.println("connected!");
         });
+
     } catch (Exception e){
       System.out.println("could not connect.");
       e.printStackTrace();
     }
 
+    //for(int i = 0; i < 11; i++){
+      //checkDatabase();
+    //}
+
   }
+  //should rate limit be on the combination of IP, userID, and session, or on each parameter by themselves?
 
 
     //Creating Jedis connection
@@ -61,11 +72,22 @@ public class redisDatabaseCommunication {
      checkDatabase();
    }
 
- }
+ } */
  //should rate limit be on the combination of IP, userID, and session, or on each parameter by themselves?
 
  public static void checkDatabase(){
-    int requests = Integer.parseInt(jedis.get("IP"));
+
+   redis = RedisAPI.api(client);
+
+   redis.setnx("IP","0");
+   redis.setnx("userID", "0");
+   redis.setnx("session", "0");
+   redis.get("IP");
+ }
+
+
+    /*
+
     if(requests < 10){
       jedis.incr("IP");
       jedis.expire("IP", 60);
@@ -76,6 +98,7 @@ public class redisDatabaseCommunication {
     }*/
     public static void main(String[] args) {
       new redisDatabaseCommunication();
+      checkDatabase();
 
     }
 }
