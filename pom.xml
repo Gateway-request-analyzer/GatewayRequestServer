@@ -17,7 +17,7 @@
     <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
 
     <vertx.version>4.3.4</vertx.version>
-    <junit-jupiter.version>5.7.0</junit-jupiter.version>
+    <junit-jupiter.version>5.9.0</junit-jupiter.version>
 
     <main.verticle>com.Gateway_request_analyzer.starter.ServerVerticle</main.verticle>
     <launcher.class>io.vertx.core.Launcher</launcher.class>
@@ -53,7 +53,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
-      <version>4.3.4</version>
+      <version>4.3.5</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
@@ -83,6 +83,11 @@
       <artifactId>junit-jupiter-engine</artifactId>
       <version>${junit-jupiter.version}</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-redis-client</artifactId>
+      <version>4.3.5</version>
     </dependency>
   </dependencies>
 

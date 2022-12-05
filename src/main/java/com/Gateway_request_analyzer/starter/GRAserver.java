@@ -1,5 +1,6 @@
 package com.Gateway_request_analyzer.starter;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpServer;
@@ -7,6 +8,8 @@ import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.redis.client.*;
+import io.vertx.redis.client.impl.RedisClient;
 
 import java.util.HashMap;
 import java.util.Objects;
@@ -15,71 +18,68 @@ public class GRAserver {
 
   Vertx vertx;
   RedisHandler redisHandler;
-  //Make this a HashMap
-  private static HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
+  Future<RedisConnection> sub;
 
-  public GRAserver(Vertx vertx, RedisHandler redisHandler){
+  //Make this a HashMap
+  private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
+
+  public GRAserver(Vertx vertx, RedisHandler redisHandler, Future<RedisConnection> sub){
     this.vertx = vertx;
     this.redisHandler = redisHandler;
+    this.sub = sub;
     this.createServer();
+
   }
 
   public void createServer(){
 
+    subscriptionSetUp();
 
     vertx.createHttpServer().webSocketHandler(handler -> {
       System.out.println("Client connected: " + handler.binaryHandlerID());
 
-      //socket = handler;
+      //socket = handler
       openConnections.put(handler.binaryHandlerID(), handler);
 
       handler.binaryMessageHandler(msg -> {
         JsonObject json = (JsonObject) Json.decodeValue(msg);
         Event event = new Event(json);
-        //send reference to this instead of socket
         redisHandler.eventRequest(event);
       });
-/*
-This is used when client disconnects,
-Remove connection from HashMap
-*/
+        /*
+        This is used when client disconnects,
+        Remove connection from HashMap
+        */
       handler.closeHandler(msg -> {
         openConnections.remove(handler.binaryHandlerID());
         System.out.println("Client disconnected" + handler.binaryHandlerID());
       });
 
-    }).listen(3000).onSuccess(err -> {
-      System.out.println("Connection succeeded");
+    }).listen(3001).onSuccess(err -> {
+      System.out.println("Connection to port succeeded");
     }).onFailure(err -> {
-      System.out.println("Connection refused");
+      System.out.println("Connection to port refused");
     });
   }
 
-  public static void notifyClients(String response){
-      //loop over sockets
-      //send to clients connected to this socket
-    for (ServerWebSocket socket : openConnections.values()) {
-      if(Objects.equals(response, "OK")){
+  private void subscriptionSetUp(){
 
-        System.out.println("Request was valid");
-        System.out.println("No action taken");
+    this.sub.onSuccess(conn ->{
+      conn.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
+      conn.handler(message -> {
 
-        //creates JsonObject to be returned to client
-        JsonObject json = new JsonObject();
-        json.put("Action", "None");
+        Buffer buf;
+        String str = message.toString();
 
-        Buffer buf = Json.encodeToBuffer(json);
-        socket.writeBinaryMessage(buf);
+        for(ServerWebSocket socket : openConnections.values()) {
 
-      }else {
-        JsonObject json = new JsonObject();
-        json.put("Action", response);
-
-        Buffer buf = Json.encodeToBuffer(json);
-        socket.writeBinaryMessage(buf);
-      }
-    }
-
+          JsonObject json = new JsonObject();
+          json.put("Action", str);
+          buf = json.toBuffer();
+          socket.writeBinaryMessage(buf);
+        }
+      });
+    });
   }
 
 }
