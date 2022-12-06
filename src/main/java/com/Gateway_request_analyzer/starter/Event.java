@@ -1,18 +1,22 @@
 package com.Gateway_request_analyzer.starter;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.WebSocket;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.parsetools.JsonEvent;
 
 
 public class Event {
-  private String ip, userId, session, URI, action, relevantToken;
+  private String ip, userId, session, URI;
 
   //TODO: toJson, DecodeJson in this class
   //TODO: some cleaning up
 
-  public Event(JsonObject json) {
+  public Event(Buffer msg) {
+    JsonObject json = (JsonObject) Json.decodeValue(msg);
     this.ip = json.getString("ip");
     this.userId = json.getString("userId");
     this.session = json.getString("session");
@@ -35,19 +39,14 @@ public class Event {
     return userId;
   }
 
-  public void setAction(String action) {
-    this.action = action;
-  }
 
-  public String getAction() {
-    return action;
-  }
+  public JsonObject toJson(){
+    JsonObject jsonEvent = new JsonObject();
+    jsonEvent.put("IP", this.ip);
+    jsonEvent.put("userId", this.userId);
+    jsonEvent.put("session", this.session);
+    jsonEvent.put("URI", this.URI);
 
-  public void setRelevantToken(String relevantToken) {
-    this.relevantToken = relevantToken;
-  }
-
-  public String getRelevantToken() {
-    return relevantToken;
+    return jsonEvent;
   }
 }

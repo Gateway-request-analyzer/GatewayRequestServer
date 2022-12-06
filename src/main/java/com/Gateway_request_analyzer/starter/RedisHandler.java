@@ -9,6 +9,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
 import io.vertx.redis.client.impl.RedisClient;
 
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class RedisHandler {
@@ -17,6 +19,7 @@ public class RedisHandler {
   //put jedis and other useful globals
   private Event event;
   private RedisAPI redis;
+  private int requestCounter = 0;
   //private RedisConnection pubsubConnection;
   Future<RedisConnection> pubFuture;
 
@@ -29,54 +32,37 @@ public class RedisHandler {
 
   public void eventRequest(Event event){
     this.event = event;
-
+    this.requestCounter++;
     //TODO: do redis stuff with event
-    redis.setnx("key", "val");
-    redis.get("key").onSuccess(val ->{
-      System.out.println(val);
-    });
+    //redis.setnx("key", "val");
+    //redis.get("key").onSuccess(val ->{
+      //System.out.println(val);
+    //});
 
 
 
 
     //TODO: return appropriate response
-
-    event.setAction("Blocked");
-    event.setRelevantToken(event.getIp());
-    publish(event);
+    if(this.requestCounter > 999) {
+      this.requestCounter = 0;
+      publish(event);
+    }
   }
 
   private void publish(Event event){
-
      this.pubFuture.onSuccess(conn -> {
-       conn.send(Request.cmd(Command.PUBLISH).arg("channel1").arg(event.getIp()))
+       conn.send(Request.cmd(Command.PUBLISH)
+           .arg("channel1")
+           .arg(event.toJson().toString()))
          .onSuccess(res -> {
            //Published
-           System.out.println("Message successfully published to pub/sub!");
+           //System.out.println("Message successfully published to pub/sub!");
 
          }).onFailure(err -> {
            System.out.println("Publisher error: " + err.getCause());
          });
 
      });
-
-
-
-
   }
-
-
-
 }
 
-/*
-Publish message with connection object
-          conn.send(Request.cmd(Command.PUBLISH).arg("channel1").arg(event.getAction() + ", " + event.getRelevantToken()))
-            .onSuccess(res -> {
-              //Published
-              System.out.println("Message published!");
-
-            }).onFailure(err -> {
-              System.out.println("Publisher error: " + err.getCause());
-            });
- */

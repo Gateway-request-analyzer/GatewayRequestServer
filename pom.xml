@@ -19,7 +19,7 @@
     <vertx.version>4.3.4</vertx.version>
     <junit-jupiter.version>5.9.0</junit-jupiter.version>
 
-    <main.verticle>com.Gateway_request_analyzer.starter.ServerVerticle</main.verticle>
+    <main.verticle>com.Gateway_request_analyzer.starter.MainVerticle</main.verticle>
     <launcher.class>io.vertx.core.Launcher</launcher.class>
   </properties>
 
@@ -87,6 +87,11 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-redis-client</artifactId>
+      <version>4.3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-config</artifactId>
       <version>4.3.5</version>
     </dependency>
   </dependencies>

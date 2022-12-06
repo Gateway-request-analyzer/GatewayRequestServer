@@ -1,5 +1,6 @@
 package com.Gateway_request_analyzer.starter;
 
+import io.vertx.config.ConfigRetriever;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -35,31 +36,27 @@ public class GRAserver {
 
     subscriptionSetUp();
 
-    vertx.createHttpServer().webSocketHandler(handler -> {
-      System.out.println("Client connected: " + handler.binaryHandlerID());
+      vertx.createHttpServer().webSocketHandler(handler -> {
+        System.out.println("Client " + handler.binaryHandlerID() + " connected to port " + this.port);
 
-      //socket = handler
-      openConnections.put(handler.binaryHandlerID(), handler);
+        //socket = handler
+        openConnections.put(handler.binaryHandlerID(), handler);
 
-      handler.binaryMessageHandler(msg -> {
-        JsonObject json = (JsonObject) Json.decodeValue(msg);
-        Event event = new Event(json);
-        redisHandler.eventRequest(event);
+        handler.binaryMessageHandler(msg -> {
+          Event event = new Event(msg);
+          redisHandler.eventRequest(event);
+        });
+        handler.closeHandler(msg -> {
+          openConnections.remove(handler.binaryHandlerID());
+          System.out.println("Client " + handler.binaryHandlerID() + " disconnected from port " + this.port);
+        });
+
+      }).listen(this.port).onSuccess(err -> {
+        System.out.println("Connection to port " + this.port + " succeeded");
+      }).onFailure(err -> {
+        System.out.println("Connection to port " + this.port + " refused");
       });
-        /*
-        This is used when client disconnects,
-        Remove connection from HashMap
-        */
-      handler.closeHandler(msg -> {
-        openConnections.remove(handler.binaryHandlerID());
-        System.out.println("Client disconnected" + handler.binaryHandlerID());
-      });
 
-    }).listen(3001).onSuccess(err -> {
-      System.out.println("Connection to port succeeded");
-    }).onFailure(err -> {
-      System.out.println("Connection to port refused");
-    });
   }
 
   private void subscriptionSetUp(){
@@ -70,6 +67,8 @@ public class GRAserver {
 
         Buffer buf;
         String str = message.toString();
+        System.out.println(str);
+        System.out.println("Message recieved from pubsub: " + str);
 
         for(ServerWebSocket socket : openConnections.values()) {
 
