@@ -1,6 +1,8 @@
 package com.Gateway_request_analyzer.starter;
 
+import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.redis.client.*;
 
@@ -12,6 +14,7 @@ public class ServerVerticle extends AbstractVerticle {
   RedisAPI redis;
   Future<RedisConnection> pub;
   Future<RedisConnection> sub;
+  int port;
 
 
   @Override
@@ -20,6 +23,8 @@ public class ServerVerticle extends AbstractVerticle {
     subConnection(vertx);
     pubConnection(vertx);
     databaseConnection(vertx);
+
+
 
     RedisHandler redisHandler = new RedisHandler(this.redis, this.pub);
     GRAserver server = new GRAserver(vertx, redisHandler, this.sub, this.port);

@@ -20,14 +20,16 @@ public class GRAserver {
   Vertx vertx;
   RedisHandler redisHandler;
   Future<RedisConnection> sub;
+  int port;
 
   //Make this a HashMap
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
 
-  public GRAserver(Vertx vertx, RedisHandler redisHandler, Future<RedisConnection> sub){
+  public GRAserver(Vertx vertx, RedisHandler redisHandler, Future<RedisConnection> sub, int port){
     this.vertx = vertx;
     this.redisHandler = redisHandler;
     this.sub = sub;
+    this.port = port;
     this.createServer();
 
   }
