@@ -3,20 +3,15 @@ import io.vertx.core.Vertx;
 import io.vertx.redis.client.Redis;
 import io.vertx.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+
 
 
 public class rateLimiter {
 
   //Allow for rate limiting on IP, user identifier, and user session
-  /*
-  private static int epoch_ms;
-  private static Pipeline pipe;*/
   private Vertx vertx;
   private static Redis client;
   private static RedisAPI redis;
@@ -38,8 +33,10 @@ public class rateLimiter {
       System.out.println("could not connect.");
       e.printStackTrace();
     }
+    redis = RedisAPI.api(client);
   }
 
+  //Creates a key/value-pair as an ArrayList of strings
  private static List<String> createKeyValPair(String s) {
     List<String> keyValPair = new ArrayList<>();
     keyValPair.add(s);
@@ -47,60 +44,75 @@ public class rateLimiter {
     return keyValPair;
  }
 
- private static AtomicBoolean setValue(List<String> keyValuePair) {
-   AtomicBoolean success = new AtomicBoolean();
-   redis.set(keyValuePair, setHandler -> {
+ //Saves key and value in database. If success, it adds an expiry time of 20 seconds.
+ private static void setValue(List<String> keyValuePair) {
+   redis.setnx(keyValuePair.get(0), keyValuePair.get(1), setHandler -> {
      if (setHandler.succeeded()) {
-       System.out.println(setHandler.result());
-       success.set(true);
+       List<String> expParams = new ArrayList<>();
+       expParams.add(keyValuePair.get(0));
+       expParams.add("20");
+       redis.expire(expParams, expHandler -> {
+         if (expHandler.succeeded()) {
+           System.out.println("Expiry time set for 20 seconds for: " + keyValuePair.get(0));
+         }
+         else {
+           System.out.println("Could not set expiry time");
+         }
+       });
      }
      else {
        System.out.println("Couldn't set value at given key");
-       success.set(false);
      }
    });
-   return success;
  }
 
- private static AtomicInteger getValue(String s) {
+ //Checks if a key exists. If the key exits the value is incremented. If not, it calls setValue to create a key.
+ private static void checkDatabase(String s) {
    AtomicInteger value = new AtomicInteger();
    redis.get(s, getHandler -> {
      if (getHandler.succeeded()) {
-       value.set(Integer.parseInt(getHandler.result().toString()));
-       System.out.println(value.get());
+       if(getHandler.result() == null) {
+         System.out.println("Key created: " + s);
+         setValue(createKeyValPair(s));
+       }
+       else {
+         value.set(Integer.parseInt(getHandler.result().toString()));
+         if(value.get() > 5) {
+           System.out.print("Too many requests: " + s);
+         }
+         else {
+           System.out.println(value.get());
+           redis.incr(s);
+         }
+       }
      }
      if (getHandler.failed()) {
        System.out.println("Couldn't get value at key");
-       value.set(-10);
      }
    });
-   return value;
  }
-
-
-
-  public static void checkDatabase(){
-    int requests = getValue("myKey").intValue();
-    if(requests < 10){
-      redis.incr("myKey");
-      System.out.println(requests);
-    }
-    else{
-      System.out.println("sorry!!!!!! to many requests.");
-    }
-  }
+ //For testing only!
+ private static void killAllKeys(List<String> keyList) {
+   redis.del(keyList, killer -> {
+     if (killer.succeeded()) {
+       System.out.println("The keys are no more");
+     }
+     else {
+       System.out.println("Still alive");
+     }
+   });
+ }
 
    //set exp-time for vertx, create Key IP:suffix
 
    public static void main (String[]args){
      new rateLimiter();
-     redis = RedisAPI.api(client);
-     List<String> keyValuePair = createKeyValPair("myKey");
-     if(setValue(keyValuePair).get()) {
-       for (int i = 0; i < 11; i++) {
-         checkDatabase();
-       }
-     };
+     List<String> keys = new ArrayList<>();
+     keys.add("myKey");
+
+     //killAllKeys(keys);           //Uncomment when we want to flush our keys
+     checkDatabase("myKey");
+
    }
 }
 
@@ -153,41 +165,4 @@ public class rateLimiter {
 
 
 
-//Old code
-  /*
-   List<String> keyExpirePair = new ArrayList<>();
-   keyExpirePair.add("IP2");
-   keyExpirePair.add("30");
-   redis.setnx("IP2","1");
-
-   redis.expireat(keyExpirePair, handler ->{
-     if(handler.succeeded()){
-       System.out.println("SUCESS FOR HANDLER");
-       System.out.println(handler.result());
-
-       redis.ttl("IP2", handler2 ->{
-         if(handler2.succeeded()){
-           System.out.println(handler2.result());
-         }
-       });
-
-     }
-     else {
-       System.out.println(" no SUCESS FOR HANDLER");
-     }
-   });
-   //redis.setnx("userID", "0");
-   //redis.setnx("session", "0");
-   //redis.get("IP");
-   //redis.setex("Lviosa", "Rosin", "30");
-
-
-
- }
-
- public void exp(){
-   redis.get("IP2").onSuccess(response -> {
-     System.out.println(response.toString());
-   });
- } */
 
