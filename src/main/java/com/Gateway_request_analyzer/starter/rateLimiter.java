@@ -6,6 +6,9 @@ import io.vertx.redis.client.RedisOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 public class rateLimiter {
@@ -37,62 +40,68 @@ public class rateLimiter {
     }
   }
 
- public static void checkDatabase(){
+ private static List<String> createKeyValPair(String s) {
+    List<String> keyValPair = new ArrayList<>();
+    keyValPair.add(s);
+    keyValPair.add("1");
+    return keyValPair;
+ }
 
-   redis = RedisAPI.api(client);
-   /*List <String> keys = new ArrayList<>();
-   keys.add("key");
-   redis.flushall(keys);
-   redis.setnx("key2", "hej");
-   redis.get("key2").onSuccess(response ->{
-   System.out.println(response.toString());
-   });*/
-
-  List<String> keyExpirePair = new ArrayList<>();
-   keyExpirePair.add("IP2");
-   keyExpirePair.add("30");
-   redis.setnx("IP2","1");
-
-   redis.expireat(keyExpirePair, handler ->{
-     if(handler.succeeded()){
-       System.out.println("SUCESS FOR HANDLER");
-       System.out.println(handler.result());
-
-       redis.ttl("IP2", handler2 ->{
-         if(handler2.succeeded()){
-           System.out.println(handler2.result());
-         }
-       });
-
+ private static AtomicBoolean setValue(List<String> keyValuePair) {
+   AtomicBoolean success = new AtomicBoolean();
+   redis.set(keyValuePair, setHandler -> {
+     if (setHandler.succeeded()) {
+       System.out.println(setHandler.result());
+       success.set(true);
      }
      else {
-       System.out.println(" no SUCESS FOR HANDLER");
+       System.out.println("Couldn't set value at given key");
+       success.set(false);
      }
    });
-   //redis.setnx("userID", "0");
-   //redis.setnx("session", "0");
-   //redis.get("IP");
-   //redis.setex("Lviosa", "Rosin", "30");
-
-
-
+   return success;
  }
 
- public void exp(){
-   redis.get("IP2").onSuccess(response -> {
-     System.out.println(response.toString());
+ private static AtomicInteger getValue(String s) {
+   AtomicInteger value = new AtomicInteger();
+   redis.get(s, getHandler -> {
+     if (getHandler.succeeded()) {
+       value.set(Integer.parseInt(getHandler.result().toString()));
+       System.out.println(value.get());
+     }
+     if (getHandler.failed()) {
+       System.out.println("Couldn't get value at key");
+       value.set(-10);
+     }
    });
+   return value;
  }
 
- //set exp-time for vertx, create Key IP:suffix
 
-    public static void main(String[] args) {
-      new rateLimiter();
-      checkDatabase();
 
+  public static void checkDatabase(){
+    int requests = getValue("myKey").intValue();
+    if(requests < 10){
+      redis.incr("myKey");
+      System.out.println(requests);
     }
+    else{
+      System.out.println("sorry!!!!!! to many requests.");
+    }
+  }
 
+   //set exp-time for vertx, create Key IP:suffix
 
+   public static void main (String[]args){
+     new rateLimiter();
+     redis = RedisAPI.api(client);
+     List<String> keyValuePair = createKeyValPair("myKey");
+     if(setValue(keyValuePair).get()) {
+       for (int i = 0; i < 11; i++) {
+         checkDatabase();
+       }
+     };
+   }
 }
 
 /*
@@ -144,6 +153,41 @@ public class rateLimiter {
 
 
 
+//Old code
+  /*
+   List<String> keyExpirePair = new ArrayList<>();
+   keyExpirePair.add("IP2");
+   keyExpirePair.add("30");
+   redis.setnx("IP2","1");
+
+   redis.expireat(keyExpirePair, handler ->{
+     if(handler.succeeded()){
+       System.out.println("SUCESS FOR HANDLER");
+       System.out.println(handler.result());
+
+       redis.ttl("IP2", handler2 ->{
+         if(handler2.succeeded()){
+           System.out.println(handler2.result());
+         }
+       });
+
+     }
+     else {
+       System.out.println(" no SUCESS FOR HANDLER");
+     }
+   });
+   //redis.setnx("userID", "0");
+   //redis.setnx("session", "0");
+   //redis.get("IP");
+   //redis.setex("Lviosa", "Rosin", "30");
 
 
+
+ }
+
+ public void exp(){
+   redis.get("IP2").onSuccess(response -> {
+     System.out.println(response.toString());
+   });
+ } */
 
