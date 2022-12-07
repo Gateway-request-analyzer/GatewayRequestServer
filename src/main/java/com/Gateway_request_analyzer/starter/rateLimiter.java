@@ -4,6 +4,9 @@ import io.vertx.redis.client.Redis;
 import io.vertx.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class rateLimiter {
 
@@ -28,7 +31,6 @@ public class rateLimiter {
         .onSuccess(conn -> {
           System.out.println("connected!");
         });
-
     } catch (Exception e){
       System.out.println("could not connect.");
       e.printStackTrace();
@@ -38,18 +40,59 @@ public class rateLimiter {
  public static void checkDatabase(){
 
    redis = RedisAPI.api(client);
+   /*List <String> keys = new ArrayList<>();
+   keys.add("key");
+   redis.flushall(keys);
+   redis.setnx("key2", "hej");
+   redis.get("key2").onSuccess(response ->{
+   System.out.println(response.toString());
+   });*/
 
-   redis.setnx("IP","0");
-   redis.setnx("userID", "0");
-   redis.setnx("session", "0");
-   redis.get("IP");
+  List<String> keyExpirePair = new ArrayList<>();
+   keyExpirePair.add("IP2");
+   keyExpirePair.add("30");
+   redis.setnx("IP2","1");
+
+   redis.expireat(keyExpirePair, handler ->{
+     if(handler.succeeded()){
+       System.out.println("SUCESS FOR HANDLER");
+       System.out.println(handler.result());
+
+       redis.ttl("IP2", handler2 ->{
+         if(handler2.succeeded()){
+           System.out.println(handler2.result());
+         }
+       });
+
+     }
+     else {
+       System.out.println(" no SUCESS FOR HANDLER");
+     }
+   });
+   //redis.setnx("userID", "0");
+   //redis.setnx("session", "0");
+   //redis.get("IP");
+   //redis.setex("Lviosa", "Rosin", "30");
+
+
+
  }
+
+ public void exp(){
+   redis.get("IP2").onSuccess(response -> {
+     System.out.println(response.toString());
+   });
+ }
+
+ //set exp-time for vertx, create Key IP:suffix
 
     public static void main(String[] args) {
       new rateLimiter();
       checkDatabase();
 
     }
+
+
 }
 
 /*
