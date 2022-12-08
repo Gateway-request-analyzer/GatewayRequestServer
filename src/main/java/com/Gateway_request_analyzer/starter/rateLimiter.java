@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
+/**
+ * Class that uses the connection to Redis database and checks if client should be rate limited
+ */
 
 public class rateLimiter {
 
@@ -16,6 +18,11 @@ public class rateLimiter {
   private static Redis client;
   private static RedisAPI redis;
 
+  /**
+   * Constructor for class rateLimiter. Will have "client" as an input parameter.
+   * Initializes the redis variable to interact with the database.
+   * @param client-  will be client
+   */
   public rateLimiter() {
     vertx = Vertx.vertx();
     try {
@@ -36,7 +43,12 @@ public class rateLimiter {
     redis = RedisAPI.api(client);
   }
 
-  //Creates a key/value-pair as an ArrayList of strings
+  /**
+   * Method for creating a key/value pair as an ArrayList of strings. First element till be the key,
+   * second element will be its value. The initial value for the key will be set to 1.
+   * @param s-  a string which will be the key
+   * @return keyValPair- returns the list keyValPair which will contain the keys and values
+   */
  private static List<String> createKeyValPair(String s) {
     List<String> keyValPair = new ArrayList<>();
     keyValPair.add(s);
@@ -44,7 +56,10 @@ public class rateLimiter {
     return keyValPair;
  }
 
- //Saves key and value in database. If success, it adds an expiry time of 20 seconds.
+  /**
+   * Method for saving a key and value in the database. If succeeded it will add an expiry time for 20 seconds to the key.
+   * @param keyValuePair- a list which contains the key/value paris.
+   */
  private static void setValue(List<String> keyValuePair) {
    redis.setnx(keyValuePair.get(0), keyValuePair.get(1), setHandler -> {
      if (setHandler.succeeded()) {
@@ -66,7 +81,11 @@ public class rateLimiter {
    });
  }
 
- //Checks if a key exists. If the key exits the value is incremented. If not, it calls setValue to create a key.
+  /**
+   * Method for checking if a key exists in the database. If it exists the value is incremented. If not,
+   * it calls setValue and creates a new key. If the value being incremented is more than 5, the requests are too many.
+   * @param s-  a string representing a key in the database. Will create a new key = s if it does not exist.
+   */
  private static void checkDatabase(String s) {
    AtomicInteger value = new AtomicInteger();
    redis.get(s, getHandler -> {
@@ -91,7 +110,11 @@ public class rateLimiter {
      }
    });
  }
- //For testing only!
+
+  /**
+   * Method for killing all keys. Will only be used for testing purposes.
+   * @param keyList-  a list of all keys we want to kill.
+   */
  private static void killAllKeys(List<String> keyList) {
    redis.del(keyList, killer -> {
      if (killer.succeeded()) {
@@ -103,8 +126,10 @@ public class rateLimiter {
    });
  }
 
-   //set exp-time for vertx, create Key IP:suffix
-
+  /**
+   * Main method for class. Will create new instance of the class.
+   * @param args-  currently has no use
+   */
    public static void main (String[]args){
      new rateLimiter();
      List<String> keys = new ArrayList<>();
