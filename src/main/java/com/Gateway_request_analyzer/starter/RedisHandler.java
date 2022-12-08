@@ -23,11 +23,15 @@ public class RedisHandler {
   //private RedisConnection pubsubConnection;
   Future<RedisConnection> pubFuture;
 
-//suggestion for rateLimiter: do we send "redis" to class? Redis = connection to DB we want to work with
-  //redis should save actions it takes
+//suggestion for rateLimiter: create new instance of rateLimiter and send redis as the parameter.
+// redis = connection to DB we want to work with.
+//redis should save actions it takes
   public RedisHandler(RedisAPI redis, Future<RedisConnection> pubFuture) {
     this.redis = redis;
     this.pubFuture = pubFuture;
+
+    //suggestion:
+    //rateLimiter ratelimiter = new rateLimiter(redis);
 
   }
 
