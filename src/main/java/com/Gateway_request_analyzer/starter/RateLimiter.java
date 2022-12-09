@@ -11,19 +11,22 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Class that uses the connection to Redis database and checks if client should be rate limited
  */
 
-public class rateLimiter {
+public class RateLimiter {
 
   //Allow for rate limiting on IP, user identifier, and user session
   private Vertx vertx;
   private static Redis client;
   private static RedisAPI redis;
+  private static final int MAX_REQUESTS_PER_1MIN = 5;
+  private static final int MAX_REQUESTS_PER_10MIN = 15;
+  private static final int EXPIRY_TIME = 20;
 
   /**
    * Constructor for class rateLimiter. Will have "client" as an input parameter.
    * Initializes the redis variable to interact with the database.
    * @param client-  will be client
    */
-  public rateLimiter() {
+  public RateLimiter() {
     vertx = Vertx.vertx();
     try {
        client = Redis.createClient(
@@ -60,12 +63,12 @@ public class rateLimiter {
    * Method for saving a key and value in the database. If succeeded it will add an expiry time for 20 seconds to the key.
    * @param keyValuePair- a list which contains the key/value paris.
    */
- private static void setValue(List<String> keyValuePair) {
+ private static void saveKeyValue(List<String> keyValuePair) {
    redis.setnx(keyValuePair.get(0), keyValuePair.get(1), setHandler -> {
      if (setHandler.succeeded()) {
        List<String> expParams = new ArrayList<>();
        expParams.add(keyValuePair.get(0));
-       expParams.add("20");
+       expParams.add(Integer.toString(EXPIRY_TIME));
        redis.expire(expParams, expHandler -> {
          if (expHandler.succeeded()) {
            System.out.println("Expiry time set for 20 seconds for: " + keyValuePair.get(0));
@@ -89,14 +92,14 @@ public class rateLimiter {
  private static void checkDatabase(String s) {
    AtomicInteger value = new AtomicInteger();
    redis.get(s, getHandler -> {
-     if (getHandler.succeeded()) {
-       if(getHandler.result() == null) {
+     if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
+       if(getHandler.result() == null) {                //Should requests from blocked users be saved in the database?   Solved by save state :)
          System.out.println("Key created: " + s);
-         setValue(createKeyValPair(s));
+         saveKeyValue(createKeyValPair(s));
        }
        else {
          value.set(Integer.parseInt(getHandler.result().toString()));
-         if(value.get() > 5) {
+         if(value.get() > MAX_REQUESTS_PER_1MIN) {
            System.out.print("Too many requests: " + s);
          }
          else {
@@ -131,7 +134,7 @@ public class rateLimiter {
    * @param args-  currently has no use
    */
    public static void main (String[]args){
-     new rateLimiter();
+     new RateLimiter();
      List<String> keys = new ArrayList<>();
      keys.add("myKey");
 
@@ -140,6 +143,12 @@ public class rateLimiter {
 
    }
 }
+
+//TODO:
+/* - get current minute from a timestamp
+   - append minute to key. ex: "1234:00"
+   - sorted set(sorts the key when adding it to the database)
+ */
 
 /*
  Rate limiting sketch for redis
