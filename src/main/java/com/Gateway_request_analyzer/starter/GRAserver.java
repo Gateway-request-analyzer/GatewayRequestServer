@@ -19,13 +19,13 @@ public class GRAserver {
 
   Vertx vertx;
   RedisHandler redisHandler;
-  Future<RedisConnection> sub;
+  RedisConnection sub;
   int port;
 
   //Make this a HashMap
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
 
-  public GRAserver(Vertx vertx, RedisHandler redisHandler, Future<RedisConnection> sub, int port){
+  public GRAserver(Vertx vertx, RedisHandler redisHandler, RedisConnection sub, int port){
     this.vertx = vertx;
     this.redisHandler = redisHandler;
     this.sub = sub;
@@ -63,9 +63,9 @@ public class GRAserver {
 
   private void subscriptionSetUp(){
 
-    this.sub.onSuccess(conn ->{
-      conn.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
-      conn.handler(message -> {
+
+      this.sub.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
+      this.sub.handler(message -> {
 
         Buffer buf;
         String str = message.toString();
@@ -80,7 +80,6 @@ public class GRAserver {
           socket.writeBinaryMessage(buf);
         }
       });
-    });
   }
 
 }

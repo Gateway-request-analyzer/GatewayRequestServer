@@ -11,6 +11,13 @@ public class MainVerticle extends AbstractVerticle {
   @Override
   public void start(){
 
+
+    for(int i = 0; i < 3; i++){
+      JsonObject jo = new JsonObject();
+      jo.put("port", 3000+i).put("host", "localhost");
+      vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo));
+    }
+    /*
     JsonObject jo = new JsonObject();
     jo.put("port", 3000);
     jo.put("host", "localhost");
@@ -28,7 +35,7 @@ public class MainVerticle extends AbstractVerticle {
     jo3.put("host", "localhost");
 
     vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo3));
-
+*/
   }
 
 

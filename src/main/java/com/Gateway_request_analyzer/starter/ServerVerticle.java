@@ -1,33 +1,47 @@
 package com.Gateway_request_analyzer.starter;
 
 import io.vertx.config.ConfigRetriever;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
 import io.vertx.redis.client.*;
 
 import java.lang.module.Configuration;
+import java.util.List;
 
 public class ServerVerticle extends AbstractVerticle {
 
 
   RedisAPI redis;
-  Future<RedisConnection> pub;
-  Future<RedisConnection> sub;
+  RedisConnection pub;
+  RedisConnection sub;
+  AsyncResult<RedisConnection> asyncSub;
+  AsyncResult<RedisConnection> asyncPub;
   int port;
 
 
   @Override
   public void start(){
     retrieveConfig();
-    subConnection(vertx);
-    pubConnection(vertx);
-    databaseConnection(vertx);
 
+    CompositeFuture.all(List.of(
+      subConnection(vertx),
+      pubConnection(vertx))
+    ).onComplete(handler -> {
 
+      System.out.println("Return value: " + this.pub);
+     // System.out.println("Sub = " + this.sub);
+      RedisHandler redisHandler = new RedisHandler(this.redis, this.pub);
+      GRAserver server = new GRAserver(vertx, redisHandler, this.sub, this.port);
 
-    RedisHandler redisHandler = new RedisHandler(this.redis, this.pub);
-    GRAserver server = new GRAserver(vertx, redisHandler, this.sub, this.port);
+      databaseConnection(vertx);
+    }).onFailure(error -> {
+      System.out.println("Error establishing pub/sub connection: " + error.getMessage());
+    });
+
+    /*
+    När detta körs måste alla connections vara öppna, kör dessa i en callback
+    Tänk på att allt händer asynkront.
+     */
+
   }
     //TODO: editconfig -> jsonfile : new port
 
@@ -53,17 +67,29 @@ public class ServerVerticle extends AbstractVerticle {
     this.redis = RedisAPI.api(client);
   }
 
-  private void pubConnection(Vertx vertx) {
+  private Future<RedisConnection> pubConnection(Vertx vertx) {
 
-    this.pub = Redis.createClient(vertx, new RedisOptions()).connect().onSuccess(msg ->{
+     return Redis.createClient(vertx, new RedisOptions()).connect().onSuccess(conn ->{
       System.out.println("Connection for publish established for port: " + this.port);
-    });
+       this.pub = conn;
+     }).onFailure(error -> {
+       System.out.println("Pub connection establishment failed: " + error.getMessage());
+     });
   }
-  private void subConnection(Vertx vertx) {
+  private Future<RedisConnection> subConnection(Vertx vertx) {
 
-    this.sub = Redis.createClient(vertx, new RedisOptions()).connect().onSuccess( msg ->{
+    return Redis.createClient(vertx, new RedisOptions()).connect().onSuccess( conn ->{
       System.out.println("Connection for subscription established for port: " + this.port);
+      this.sub = conn;
+    }).onFailure(error -> {
+      System.out.println("Connection for subscription establishment fialed: " + error.getMessage());
     });
   }
 
 }
+/*
+* Deklarera connection i pub/sub connection synkront. Koppla inte för varje.
+* Skicka inte vidare en future.
+* Vänta tills futures är klara i startmetoden, assignera dom efteråt.
+*
+* */

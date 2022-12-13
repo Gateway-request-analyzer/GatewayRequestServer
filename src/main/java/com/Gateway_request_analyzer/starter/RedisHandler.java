@@ -21,14 +21,14 @@ public class RedisHandler {
   private RedisAPI redis;
   private int requestCounter = 0;
   //private RedisConnection pubsubConnection;
-  Future<RedisConnection> pubFuture;
+  RedisConnection pub;
 
 //suggestion for rateLimiter: create new instance of rateLimiter and send redis as the parameter.
 // redis = connection to DB we want to work with.
 //redis should save actions it takes
-  public RedisHandler(RedisAPI redis, Future<RedisConnection> pubFuture) {
+  public RedisHandler(RedisAPI redis, RedisConnection pub) {
     this.redis = redis;
-    this.pubFuture = pubFuture;
+    this.pub = pub;
 
     //suggestion:
     //rateLimiter ratelimiter = new rateLimiter(redis);
@@ -45,8 +45,6 @@ public class RedisHandler {
     //});
 
 
-
-
     //TODO: return appropriate response
     if(this.requestCounter > 999) {
       this.requestCounter = 0;
@@ -55,8 +53,8 @@ public class RedisHandler {
   }
 
   private void publish(Event event){
-     this.pubFuture.onSuccess(conn -> {
-       conn.send(Request.cmd(Command.PUBLISH)
+
+       this.pub.send(Request.cmd(Command.PUBLISH)
            .arg("channel1")
            .arg(event.toJson().toString()))
          .onSuccess(res -> {
@@ -66,8 +64,6 @@ public class RedisHandler {
          }).onFailure(err -> {
            System.out.println("Publisher error: " + err.getCause());
          });
-
-     });
   }
 }
 
