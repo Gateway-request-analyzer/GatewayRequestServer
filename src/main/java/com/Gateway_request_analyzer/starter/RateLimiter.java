@@ -3,6 +3,9 @@ import io.vertx.core.Vertx;
 import io.vertx.redis.client.Redis;
 import io.vertx.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
+
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -89,9 +92,21 @@ public class RateLimiter {
    * it calls setValue and creates a new key. If the value being incremented is more than 5, the requests are too many.
    * @param s-  a string representing a key in the database. Will create a new key = s if it does not exist.
    */
+
+
+  //TODO:
+/* - get current minute from a timestamp
+   - append minute to key. ex: "1234:00"
+   - sorted set(sorts the key when adding it to the database)
+ */
+
  private static void checkDatabase(String s) {
    AtomicInteger value = new AtomicInteger();
-   redis.get(s, getHandler -> {
+   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+
+   String key = s + ":" + currentMinute;
+
+   redis.get(key, getHandler -> {
      if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
        if(getHandler.result() == null) {                //Should requests from blocked users be saved in the database?   Solved by save state :)
          System.out.println("Key created: " + s);
@@ -114,6 +129,10 @@ public class RateLimiter {
    });
  }
 
+
+
+
+
   /**
    * Method for killing all keys. Will only be used for testing purposes.
    * @param keyList-  a list of all keys we want to kill.
@@ -134,21 +153,18 @@ public class RateLimiter {
    * @param args-  currently has no use
    */
    public static void main (String[]args){
-     new RateLimiter();
+   /*  new RateLimiter();
      List<String> keys = new ArrayList<>();
      keys.add("myKey");
 
      //killAllKeys(keys);           //Uncomment when we want to flush our keys
      checkDatabase("myKey");
+*/
 
    }
 }
 
-//TODO:
-/* - get current minute from a timestamp
-   - append minute to key. ex: "1234:00"
-   - sorted set(sorts the key when adding it to the database)
- */
+
 
 /*
  Rate limiting sketch for redis
