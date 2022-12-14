@@ -4,10 +4,11 @@ import io.vertx.redis.client.Redis;
 import io.vertx.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 
+import java.sql.SQLOutput;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -20,9 +21,9 @@ public class RateLimiter {
   private Vertx vertx;
   private static Redis client;
   private static RedisAPI redis;
-  private static final int MAX_REQUESTS_PER_1MIN = 5;
-  private static final int MAX_REQUESTS_PER_10MIN = 15;
-  private static final int EXPIRY_TIME = 20;
+  private static final int MAX_REQUESTS_PER_1MIN = 3;
+  private static final int MAX_REQUESTS_PER_10MIN = 4;
+  private static final int EXPIRY_TIME = 180;
 
   /**
    * Constructor for class rateLimiter. Will have "client" as an input parameter.
@@ -101,7 +102,7 @@ public class RateLimiter {
  */
 
  private static void checkDatabase(String s) {
-   AtomicInteger countPrevRequests = new AtomicInteger();
+   AtomicInteger countPrevRequests = new AtomicInteger(1);
    AtomicInteger value = new AtomicInteger();
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
 
@@ -109,47 +110,53 @@ public class RateLimiter {
 
    redis.get(key, getHandler -> {
      if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
-       if(getHandler.result() == null) {
+       if (getHandler.result() == null) {
          System.out.println("Key created: " + key);
          saveKeyValue(createKeyValPair(key));
-       }
-       else {
+       } else {
          value.set(Integer.parseInt(getHandler.result().toString()));
-         if(value.get() > MAX_REQUESTS_PER_1MIN) {
-           System.out.print("Too many requests: " + key);
+         if (value.get() > MAX_REQUESTS_PER_1MIN) {
+           System.out.print("Too many requests for 1 minute: " + key);
+           //Send info to gateway
          }
          else {
            System.out.println(value.get());
            redis.incr(key);
            countPrevRequests.set(value.get());
+           System.out.println("Count prev1: " + countPrevRequests.get());
            countPrevRequests.addAndGet(1);
+           System.out.println("Count prev2: " + countPrevRequests.get());
            //get previous 4 minutes to se number of requests
-           for(int i=0; i < EXPIRY_TIME; i++){
-             int minute = Integer.parseInt(currentMinute);
-             minute = (minute - 1 ) % 60;
-             String prevMinute = Integer.toString(minute);
-             String newKey = s + ":" + prevMinute;
-             redis.get(newKey, handler ->{
-               if(handler.succeeded()){
-                 if(countPrevRequests.addAndGet(Integer.parseInt(handler.result().toString())) > MAX_REQUESTS_PER_10MIN){
-                   System.out.print("Too many requests for 10 minutes");
+           int minute = Integer.parseInt(currentMinute);
+           for (int i = 1; i < (EXPIRY_TIME / 60); i++) {
+             AtomicBoolean roofReached = new AtomicBoolean(false);
+             if (!roofReached.get()) {
+               int prevMinute = (minute - i) % 60;
+               String prevMinuteSuffix = Integer.toString(prevMinute);
+               String newKey = s + ":" + prevMinuteSuffix;
+               redis.get(newKey, handler -> {
+                 if (handler.succeeded()) {
+                   if (handler.result() != null) {
+                     countPrevRequests.addAndGet(Integer.parseInt(handler.result().toString()));
+                     if (countPrevRequests.get() > MAX_REQUESTS_PER_10MIN) {
+                       System.out.print("Too many requests for 3 minutes");
+                       roofReached.set(true);
+                     }
+                   } else if (handler.failed()) {
+                     System.out.println("Something is wrong");
+                   }
                  }
-               }
-
-             });
-             break;
+               });
+             } else {
+               break;
+             }
            }
+           System.out.println("Allow request");
          }
-
-
-
-
-
-
+         if (getHandler.failed()) {
+           System.out.println("Couldn't get value at key");
+         }
        }
-     }
-     if (getHandler.failed()) {
-       System.out.println("Couldn't get value at key");
      }
    });
  }
@@ -178,14 +185,12 @@ public class RateLimiter {
    * @param args-  currently has no use
    */
    public static void main (String[]args){
-   /*  new RateLimiter();
-     List<String> keys = new ArrayList<>();
-     keys.add("myKey");
+     new RateLimiter();
+     //List<String> keys = new ArrayList<>();
+     //keys.add("myKey");
 
      //killAllKeys(keys);           //Uncomment when we want to flush our keys
      checkDatabase("myKey");
-*/
-
    }
 }
 
