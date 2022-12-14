@@ -101,6 +101,7 @@ public class RateLimiter {
  */
 
  private static void checkDatabase(String s) {
+   AtomicInteger countPrevRequests = new AtomicInteger();
    AtomicInteger value = new AtomicInteger();
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
 
@@ -108,19 +109,43 @@ public class RateLimiter {
 
    redis.get(key, getHandler -> {
      if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
-       if(getHandler.result() == null) {                //Should requests from blocked users be saved in the database?   Solved by save state :)
-         System.out.println("Key created: " + s);
-         saveKeyValue(createKeyValPair(s));
+       if(getHandler.result() == null) {
+         System.out.println("Key created: " + key);
+         saveKeyValue(createKeyValPair(key));
        }
        else {
          value.set(Integer.parseInt(getHandler.result().toString()));
          if(value.get() > MAX_REQUESTS_PER_1MIN) {
-           System.out.print("Too many requests: " + s);
+           System.out.print("Too many requests: " + key);
          }
          else {
            System.out.println(value.get());
-           redis.incr(s);
+           redis.incr(key);
+           countPrevRequests.set(value.get());
+           countPrevRequests.addAndGet(1);
+           //get previous 4 minutes to se number of requests
+           for(int i=0; i < EXPIRY_TIME; i++){
+             int minute = Integer.parseInt(currentMinute);
+             minute = (minute - 1 ) % 60;
+             String prevMinute = Integer.toString(minute);
+             String newKey = s + ":" + prevMinute;
+             redis.get(newKey, handler ->{
+               if(handler.succeeded()){
+                 if(countPrevRequests.addAndGet(Integer.parseInt(handler.result().toString())) > MAX_REQUESTS_PER_10MIN){
+                   System.out.print("Too many requests for 10 minutes");
+                 }
+               }
+
+             });
+             break;
+           }
          }
+
+
+
+
+
+
        }
      }
      if (getHandler.failed()) {
