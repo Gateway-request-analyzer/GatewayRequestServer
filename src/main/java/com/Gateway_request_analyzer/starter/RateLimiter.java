@@ -5,6 +5,7 @@ import io.vertx.redis.client.*;
 import java.sql.SQLOutput;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,7 +92,6 @@ public class RateLimiter {
   }
 
  private void checkDatabase(String s) {
-   AtomicInteger countPrevRequests = new AtomicInteger(1);
    AtomicInteger value = new AtomicInteger();
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
 
@@ -110,51 +110,50 @@ public class RateLimiter {
            //Send info to gateway
          }
          else {
-           System.out.println(value.get());
-           redis.incr(key);
-           countPrevRequests.set(value.get());
-           System.out.println("Count prev1: " + countPrevRequests.get());
-           countPrevRequests.addAndGet(1);
-           System.out.println("Count prev2: " + countPrevRequests.get());
            //get previous 4 minutes to se number of requests
            int minute = Integer.parseInt(currentMinute);
-           for (int i = 1; i < (EXPIRY_TIME / 60); i++) {
-             AtomicBoolean roofReached = new AtomicBoolean(false);
-             if (!roofReached.get()) {
-               int prevMinute = (minute - i) % 60;
-               String prevMinuteSuffix = Integer.toString(prevMinute);
-               String newKey = s + ":" + prevMinuteSuffix;
-               redis.get(newKey, handler -> {
-                 if (handler.succeeded()) {
-                   if (handler.result() != null) {
-                     countPrevRequests.addAndGet(Integer.parseInt(handler.result().toString()));
-                     if (countPrevRequests.get() > MAX_REQUESTS_PER_10MIN) {
-                       System.out.print("Too many requests for 3 minutes");
-                       roofReached.set(true);
-                       this.publish(s, "blocked");
-                     }
-                   } else if (handler.failed()) {
-                     System.out.println("Something is wrong");
-                   }
-                 }
-               });
-             } else {
-               break;
-             }
+           List<String> prevKeys = new ArrayList<>();
+           for (int i = 1; i <= (EXPIRY_TIME / 60); i++) {
+             int prevMinute = (minute - i) % 60;
+             String prevMinuteSuffix = Integer.toString(prevMinute);
+             String newKey = s + ":" + prevMinuteSuffix;
+             prevKeys.add(newKey);
            }
-           System.out.println("Allow request");
+           redis.mget(prevKeys).onComplete(handler -> {
+             if(handler.succeeded()) {
+               int requests = 0;
+
+               System.out.print(handler.result());
+/*
+               Iterator<Response> it = handler.result().iterator();
+               while (it.hasNext()) {
+                 for (Response r : it.next()) {
+                   requests += r.toInteger();
+                 }
+               }*/
+               if (requests > MAX_REQUESTS_PER_10MIN) {
+                 System.out.print("Too many requests for 3 minutes");
+                 this.publish(s, "blocked");
+               } else {
+                 redis.incr(key).onComplete(handlerIncr -> {
+                   if (handlerIncr.succeeded()) {
+                     System.out.println("Allow request");
+                     //send info to gateway
+                   } else {
+                     handlerIncr.cause();
+                   }
+                 });
+
+               }
+             }});
+           }
          }
          if (getHandler.failed()) {
            System.out.println("Couldn't get value at key");
          }
        }
-     }
    });
  }
-
-
-
-
 
   /**
    * Method for killing all keys. Will only be used for testing purposes.
