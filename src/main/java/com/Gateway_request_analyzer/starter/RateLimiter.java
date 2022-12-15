@@ -1,8 +1,6 @@
 package com.Gateway_request_analyzer.starter;
 import io.vertx.core.Vertx;
-import io.vertx.redis.client.Redis;
-import io.vertx.redis.client.RedisAPI;
-import io.vertx.redis.client.RedisOptions;
+import io.vertx.redis.client.*;
 
 import java.sql.SQLOutput;
 import java.text.SimpleDateFormat;
@@ -20,7 +18,8 @@ public class RateLimiter {
   //Allow for rate limiting on IP, user identifier, and user session
   private Vertx vertx;
   private static Redis client;
-  private static RedisAPI redis;
+  private RedisAPI redis;
+  private RedisConnection pub;
   private static final int MAX_REQUESTS_PER_1MIN = 3;
   private static final int MAX_REQUESTS_PER_10MIN = 4;
   private static final int EXPIRY_TIME = 180;
@@ -28,26 +27,12 @@ public class RateLimiter {
   /**
    * Constructor for class rateLimiter. Will have "client" as an input parameter.
    * Initializes the redis variable to interact with the database.
-   * @param client-  will be client
+   *  client -  will be client
    */
-  public RateLimiter() {
-    vertx = Vertx.vertx();
-    try {
-       client = Redis.createClient(
-          vertx,
-          // The client handles REDIS URLs. The select database as per spec is the
-          // numerical path of the URL and the password is the password field of
-          // the URL authority
-          new RedisOptions());
-        client.connect()
-        .onSuccess(conn -> {
-          System.out.println("connected!");
-        });
-    } catch (Exception e){
-      System.out.println("could not connect.");
-      e.printStackTrace();
-    }
-    redis = RedisAPI.api(client);
+  public RateLimiter(RedisAPI redis, RedisConnection pub) {
+    this.redis = redis;
+    this.pub = pub;
+
   }
 
   /**
@@ -56,7 +41,7 @@ public class RateLimiter {
    * @param s-  a string which will be the key
    * @return keyValPair- returns the list keyValPair which will contain the keys and values
    */
- private static List<String> createKeyValPair(String s) {
+ private List<String> createKeyValPair(String s) {
     List<String> keyValPair = new ArrayList<>();
     keyValPair.add(s);
     keyValPair.add("1");
@@ -67,7 +52,7 @@ public class RateLimiter {
    * Method for saving a key and value in the database. If succeeded it will add an expiry time for 20 seconds to the key.
    * @param keyValuePair- a list which contains the key/value paris.
    */
- private static void saveKeyValue(List<String> keyValuePair) {
+ private void saveKeyValue(List<String> keyValuePair) {
    redis.setnx(keyValuePair.get(0), keyValuePair.get(1), setHandler -> {
      if (setHandler.succeeded()) {
        List<String> expParams = new ArrayList<>();
@@ -91,7 +76,7 @@ public class RateLimiter {
   /**
    * Method for checking if a key exists in the database. If it exists the value is incremented. If not,
    * it calls setValue and creates a new key. If the value being incremented is more than 5, the requests are too many.
-   * @param s-  a string representing a key in the database. Will create a new key = s if it does not exist.
+   * @param -  a string representing a key in the database. Will create a new key = s if it does not exist.
    */
 
 
@@ -101,14 +86,18 @@ public class RateLimiter {
    - sorted set(sorts the key when adding it to the database)
  */
 
- private static void checkDatabase(String s) {
+  public void unpackEvent(Event event){
+    checkDatabase(event.getIp());
+  }
+
+ private void checkDatabase(String s) {
    AtomicInteger countPrevRequests = new AtomicInteger(1);
    AtomicInteger value = new AtomicInteger();
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
 
    String key = s + ":" + currentMinute;
 
-   redis.get(key, getHandler -> {
+   redis.get(key).onComplete( getHandler -> {
      if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
        if (getHandler.result() == null) {
          System.out.println("Key created: " + key);
@@ -117,6 +106,7 @@ public class RateLimiter {
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() > MAX_REQUESTS_PER_1MIN) {
            System.out.print("Too many requests for 1 minute: " + key);
+           this.publish(s, "blocked");
            //Send info to gateway
          }
          else {
@@ -141,6 +131,7 @@ public class RateLimiter {
                      if (countPrevRequests.get() > MAX_REQUESTS_PER_10MIN) {
                        System.out.print("Too many requests for 3 minutes");
                        roofReached.set(true);
+                       this.publish(s, "blocked");
                      }
                    } else if (handler.failed()) {
                      System.out.println("Something is wrong");
@@ -169,7 +160,7 @@ public class RateLimiter {
    * Method for killing all keys. Will only be used for testing purposes.
    * @param keyList-  a list of all keys we want to kill.
    */
- private static void killAllKeys(List<String> keyList) {
+ private void killAllKeys(List<String> keyList) {
    redis.del(keyList, killer -> {
      if (killer.succeeded()) {
        System.out.println("The keys are no more");
@@ -185,13 +176,27 @@ public class RateLimiter {
    * @param args-  currently has no use
    */
    public static void main (String[]args){
-     new RateLimiter();
+     //new RateLimiter();
      //List<String> keys = new ArrayList<>();
      //keys.add("myKey");
 
      //killAllKeys(keys);           //Uncomment when we want to flush our keys
-     checkDatabase("myKey");
+     //checkDatabase("myKey");
    }
+
+  private void publish(String ip, String action){
+
+    this.pub.send(Request.cmd(Command.PUBLISH)
+        .arg("channel1")
+        .arg(ip + " " +  action))
+      .onSuccess(res -> {
+        //Published
+        //System.out.println("Message successfully published to pub/sub!");
+
+      }).onFailure(err -> {
+        System.out.println("Publisher error: " + err.getCause());
+      });
+  }
 }
 
 

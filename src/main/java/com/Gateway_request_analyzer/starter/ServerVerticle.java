@@ -26,13 +26,13 @@ public class ServerVerticle extends AbstractVerticle {
       subConnection(vertx),
       pubConnection(vertx))
     ).onComplete(handler -> {
-
+      databaseConnection(vertx);
       System.out.println("Return value: " + this.pub);
      // System.out.println("Sub = " + this.sub);
-      RedisHandler redisHandler = new RedisHandler(this.redis, this.pub);
-      GRAserver server = new GRAserver(vertx, redisHandler, this.sub, this.port);
+      RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub);
+      GRAserver server = new GRAserver(vertx, rateLimiter, this.sub, this.port);
 
-      databaseConnection(vertx);
+
     }).onFailure(error -> {
       System.out.println("Error establishing pub/sub connection: " + error.getMessage());
     });

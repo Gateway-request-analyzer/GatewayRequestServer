@@ -39,31 +39,18 @@ public class RedisHandler {
     this.event = event;
     this.requestCounter++;
     //TODO: do redis stuff with event
-    //redis.setnx("key", "val");
-    //redis.get("key").onSuccess(val ->{
-      //System.out.println(val);
-    //});
+    redis.setnx("lel", "s");
+    redis.get("lel").onSuccess(lol ->{
+      System.out.println(lol);
+    });
 
 
     //TODO: return appropriate response
-    if(this.requestCounter > 999) {
+    if(this.requestCounter > 9) {
       this.requestCounter = 0;
-      publish(event);
     }
   }
 
-  private void publish(Event event){
 
-       this.pub.send(Request.cmd(Command.PUBLISH)
-           .arg("channel1")
-           .arg(event.toJson().toString()))
-         .onSuccess(res -> {
-           //Published
-           //System.out.println("Message successfully published to pub/sub!");
-
-         }).onFailure(err -> {
-           System.out.println("Publisher error: " + err.getCause());
-         });
-  }
 }
 

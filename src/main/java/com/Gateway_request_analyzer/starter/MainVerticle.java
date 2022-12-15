@@ -11,7 +11,7 @@ public class MainVerticle extends AbstractVerticle {
   @Override
   public void start(){
 
-
+    //amounts of servers started
     for(int i = 0; i < 3; i++){
       JsonObject jo = new JsonObject();
       jo.put("port", 3000+i).put("host", "localhost");

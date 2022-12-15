@@ -18,16 +18,16 @@ import java.util.Objects;
 public class GRAserver {
 
   Vertx vertx;
-  RedisHandler redisHandler;
+  RateLimiter rateLimiter;
   RedisConnection sub;
   int port;
 
   //Make this a HashMap
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
 
-  public GRAserver(Vertx vertx, RedisHandler redisHandler, RedisConnection sub, int port){
+  public GRAserver(Vertx vertx, RateLimiter rateLimiter, RedisConnection sub, int port){
     this.vertx = vertx;
-    this.redisHandler = redisHandler;
+    this.rateLimiter = rateLimiter;
     this.sub = sub;
     this.port = port;
     this.createServer();
@@ -46,7 +46,7 @@ public class GRAserver {
 
         handler.binaryMessageHandler(msg -> {
           Event event = new Event(msg);
-          redisHandler.eventRequest(event);
+          rateLimiter.unpackEvent(event);
         });
         handler.closeHandler(msg -> {
           openConnections.remove(handler.binaryHandlerID());
