@@ -42,26 +42,30 @@ public class RateLimiter {
    * @param s-  a string which will be the key
    * @return keyValPair- returns the list keyValPair which will contain the keys and values
    */
- private List<String> createKeyValPair(String s) {
+  //Remove?
+ /*
+  private List<String> createKeyValPair(String s) {
     List<String> keyValPair = new ArrayList<>();
     keyValPair.add(s);
     keyValPair.add("1");
     return keyValPair;
  }
+ */
+
 
   /**
    * Method for saving a key and value in the database. If succeeded it will add an expiry time for 20 seconds to the key.
-   * @param keyValuePair- a list which contains the key/value paris.
+   * @param key- a string with a key.
    */
- private void saveKeyValue(List<String> keyValuePair) {
-   redis.setnx(keyValuePair.get(0), keyValuePair.get(1), setHandler -> {
+ private void saveKeyValue(String key) {
+   redis.setnx(key, "1").onComplete(setHandler -> {
      if (setHandler.succeeded()) {
        List<String> expParams = new ArrayList<>();
-       expParams.add(keyValuePair.get(0));
+       expParams.add(key);
        expParams.add(Integer.toString(EXPIRY_TIME));
        redis.expire(expParams, expHandler -> {
          if (expHandler.succeeded()) {
-           System.out.println("Expiry time set for 20 seconds for: " + keyValuePair.get(0));
+           System.out.println("Expiry time set for 20 seconds for: " + key);
          }
          else {
            System.out.println("Could not set expiry time");
@@ -101,7 +105,7 @@ public class RateLimiter {
      if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
        if (getHandler.result() == null) {
          System.out.println("Key created: " + key);
-         saveKeyValue(createKeyValPair(key));
+         saveKeyValue(key);
        } else {
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() > MAX_REQUESTS_PER_1MIN) {
@@ -122,15 +126,18 @@ public class RateLimiter {
            redis.mget(prevKeys).onComplete(handler -> {
              if(handler.succeeded()) {
                int requests = 0;
-
                System.out.print(handler.result());
-/*
-               Iterator<Response> it = handler.result().iterator();
+               /*Iterator<Response> it = handler.result().iterator();
                while (it.hasNext()) {
-                 for (Response r : it.next()) {
+                 Response r = it.next();
+                 if (r == null) {
+                   requests += 0;
+                 }
+                 else {
                    requests += r.toInteger();
                  }
-               }*/
+                 System.out.print("Total requests: " + requests);
+               } */
                if (requests > MAX_REQUESTS_PER_10MIN) {
                  System.out.print("Too many requests for 3 minutes");
                  this.publish(s, "blocked");
