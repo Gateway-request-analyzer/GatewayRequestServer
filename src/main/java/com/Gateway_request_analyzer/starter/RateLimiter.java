@@ -7,7 +7,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -17,12 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RateLimiter {
 
   //Allow for rate limiting on IP, user identifier, and user session
-  private Vertx vertx;
-  private static Redis client;
   private RedisAPI redis;
   private RedisConnection pub;
-  private static final int MAX_REQUESTS_PER_1MIN = 3;
-  private static final int MAX_REQUESTS_PER_10MIN = 4;
+  private static final int MAX_REQUESTS_PER_1MIN = 5;
+  private static final int MAX_REQUESTS_TIMEFRAME = 12;
   private static final int EXPIRY_TIME = 180;
 
   /**
@@ -33,7 +30,6 @@ public class RateLimiter {
   public RateLimiter(RedisAPI redis, RedisConnection pub) {
     this.redis = redis;
     this.pub = pub;
-
   }
 
   /**
@@ -51,10 +47,9 @@ public class RateLimiter {
     return keyValPair;
  }
  */
-
-
+  //Do we need javadoc for private methods?
   /**
-   * Method for saving a key and value in the database. If succeeded it will add an expiry time for 20 seconds to the key.
+   * Method for saving a key and value in the database. If succeeded it will add an expiry time  to the key.
    * @param key- a string with a key.
    */
  private void saveKeyValue(String key) {
@@ -65,7 +60,7 @@ public class RateLimiter {
        expParams.add(Integer.toString(EXPIRY_TIME));
        redis.expire(expParams, expHandler -> {
          if (expHandler.succeeded()) {
-           System.out.println("Expiry time set for 20 seconds for: " + key);
+           System.out.println("Expiry time set for " + EXPIRY_TIME + "seconds for: " + key);
          }
          else {
            System.out.println("Could not set expiry time");
@@ -77,57 +72,55 @@ public class RateLimiter {
      }
    });
  }
+  /**
+   * Method for unpacking an event and checking the database with each parameter within the event.
+   * @param event-  an event object containing identifying features for an event.
+   */
+ public void unpackEvent(Event event){
+   checkDatabase(event.getIp());
+   //checkDatabase(event.getSession());
+   //checkDatabase(event.getURI());
+   //checkDatabase(event.getUserId());
+  }
 
   /**
    * Method for checking if a key exists in the database. If it exists the value is incremented. If not,
    * it calls setValue and creates a new key. If the value being incremented is more than 5, the requests are too many.
    * @param -  a string representing a key in the database. Will create a new key = s if it does not exist.
    */
-
-
-  //TODO:
-/* - get current minute from a timestamp
-   - append minute to key. ex: "1234:00"
-   - sorted set(sorts the key when adding it to the database)
- */
-
-  public void unpackEvent(Event event){
-    checkDatabase(event.getIp());
-  }
-
  private void checkDatabase(String s) {
    AtomicInteger value = new AtomicInteger();
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
-
    String key = s + ":" + currentMinute;
 
    redis.get(key).onComplete( getHandler -> {
-     if (getHandler.succeeded()) {                      //For all requests incoming during a new minute, should we check all previous minutes before creating anew key for current minute?
-       if (getHandler.result() == null) {
-         System.out.println("Key created: " + key);
-         saveKeyValue(key);
-       } else {
+     if (getHandler.succeeded()) {
+       //Create key for current minute if it does not exist
+       if (getHandler.result() == null){
+           System.out.println("Key created: " + key);
+           saveKeyValue(key);
+         }
+       else {
+         //Checks if limit for requests are reached the current minute
          value.set(Integer.parseInt(getHandler.result().toString()));
-         if (value.get() > MAX_REQUESTS_PER_1MIN) {
-           System.out.print("Too many requests for 1 minute: " + key);
+         if (value.get() >= MAX_REQUESTS_PER_1MIN) {
+           System.out.print(" Too many requests for 1 minute: " + key);
            this.publish(s, "blocked");
-           //Send info to gateway
          }
          else {
-           //get previous 4 minutes to se number of requests
-           int minute = Integer.parseInt(currentMinute);
+           //get/create keys for previous minutes within time frame to check if total number of requests is reached
            List<String> prevKeys = new ArrayList<>();
            for (int i = 1; i <= (EXPIRY_TIME / 60); i++) {
-             int prevMinute = (minute - i) % 60;
-             String prevMinuteSuffix = Integer.toString(prevMinute);
-             String newKey = s + ":" + prevMinuteSuffix;
+             int prevMinute = (Integer.parseInt(currentMinute) - i) % 60;
+             String newKey = s + ":" + prevMinute;
              prevKeys.add(newKey);
            }
+           //use redis multiget to get all requests
            redis.mget(prevKeys).onComplete(handler -> {
              if(handler.succeeded()) {
-               int requests = 0;
-               System.out.print(handler.result());
-               /*Iterator<Response> it = handler.result().iterator();
+               int requests = value.get();
+               // Summation of all number of requests within time frame
+               Iterator<Response> it = handler.result().iterator();
                while (it.hasNext()) {
                  Response r = it.next();
                  if (r == null) {
@@ -136,29 +129,31 @@ public class RateLimiter {
                  else {
                    requests += r.toInteger();
                  }
-                 System.out.print("Total requests: " + requests);
-               } */
-               if (requests > MAX_REQUESTS_PER_10MIN) {
-                 System.out.print("Too many requests for 3 minutes");
+               }
+               System.out.print("  Total requests: " + requests);
+               if (requests >= MAX_REQUESTS_TIMEFRAME) {
+                 System.out.print(" Too many requests for time frame" );
                  this.publish(s, "blocked");
-               } else {
+               }
+               else {
                  redis.incr(key).onComplete(handlerIncr -> {
                    if (handlerIncr.succeeded()) {
-                     System.out.println("Allow request");
-                     //send info to gateway
-                   } else {
+                     System.out.println(" Allow request ");
+                       //send info to gateway
+                     }
+                   else {
                      handlerIncr.cause();
                    }
                  });
-
                }
-             }});
-           }
-         }
-         if (getHandler.failed()) {
-           System.out.println("Couldn't get value at key");
+             }
+           });
          }
        }
+       if (getHandler.failed()) {
+         System.out.println("Couldn't get value at key");
+       }
+     }
    });
  }
 
