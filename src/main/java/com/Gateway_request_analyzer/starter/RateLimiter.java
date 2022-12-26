@@ -32,21 +32,6 @@ public class RateLimiter {
     this.pub = pub;
   }
 
-  /**
-   * Method for creating a key/value pair as an ArrayList of strings. First element till be the key,
-   * second element will be its value. The initial value for the key will be set to 1.
-   * @param s-  a string which will be the key
-   * @return keyValPair- returns the list keyValPair which will contain the keys and values
-   */
-  //Remove?
- /*
-  private List<String> createKeyValPair(String s) {
-    List<String> keyValPair = new ArrayList<>();
-    keyValPair.add(s);
-    keyValPair.add("1");
-    return keyValPair;
- }
- */
   //Do we need javadoc for private methods?
   /**
    * Method for saving a key and value in the database. If succeeded it will add an expiry time  to the key.
@@ -157,34 +142,6 @@ public class RateLimiter {
    });
  }
 
-  /**
-   * Method for killing all keys. Will only be used for testing purposes.
-   * @param keyList-  a list of all keys we want to kill.
-   */
- private void killAllKeys(List<String> keyList) {
-   redis.del(keyList, killer -> {
-     if (killer.succeeded()) {
-       System.out.println("The keys are no more");
-     }
-     else {
-       System.out.println("Still alive");
-     }
-   });
- }
-
-  /**
-   * Main method for class. Will create new instance of the class.
-   * @param args-  currently has no use
-   */
-   public static void main (String[]args){
-     //new RateLimiter();
-     //List<String> keys = new ArrayList<>();
-     //keys.add("myKey");
-
-     //killAllKeys(keys);           //Uncomment when we want to flush our keys
-     //checkDatabase("myKey");
-   }
-
   private void publish(String ip, String action){
 
     this.pub.send(Request.cmd(Command.PUBLISH)
@@ -199,55 +156,6 @@ public class RateLimiter {
       });
   }
 }
-
-
-
-/*
- Rate limiting sketch for redis
-
-     Request: Key = IP:suffix, suffix = :minute -> IP:0 for first minute,  value incr with every request
-     Total number of requests per minute = 4
-     Total number of requests per every 5 minutes = 10
-     Expiration for keys = 5 minutes
-
-     Minute 0:
-      Req 1 -> IP:0, value=1      /does all of these expire at the same time or does expiry time get updated with every incr?
-      Req 2 -> IP:0, value=2
-      Req 3 -> IP:0, value=3
-      Req 4 -> IP:0, value=4
-      Req 5 -> too many requests for one minute.
-
-     Minute 1:
-      Req 6 -> IP:1, value=1          /We also need to check how many requests done during minute 0 to see if limit for requests during 5 minutes has been reached.
-      Req 7 -> IP:1, value=2
-      Req 8 -> IP:1, value=3
-      Req 9 -> IP:1, value=4
-      Req 10 -> too many requests for one minute.
-
-     Minute 2:
-      Req 11 -> IP:2, value=1
-      Req 12 -> IP:2, value=2
-      Req 13 -> too many requests during 5 minute window -> we need to wait until 5 minutes has passed from minute 0 until more requests can be made
-
-      Wait during minute 3 - minute 4 ...
-
-     Minute 5:
-      The key IP:0 has expired and 4 new requests can be made
-
-     Minute 6:
-      The key IP:1 has expired and 4 new requests can be made
-
-     Minute 7:
-      The key IP:2 has expired and 2 new requests can be made
-
-
-
-
-     - använda time-stamp för att för att sätta suffix med minut i key
-     - varje key/value ska ha en expiration
-     - för att rate-limita: summera alla värden som ligger under varje key
-      - sorted
- */
 
 
 
