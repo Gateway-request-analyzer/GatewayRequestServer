@@ -12,7 +12,7 @@ import io.vertx.redis.client.impl.RedisClient;
 import java.util.HashMap;
 import java.util.Map;
 
-
+//TODO: remove class if not used.
 public class RedisHandler {
 
   // socket is used to communicate back on the open connection with client

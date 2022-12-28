@@ -7,6 +7,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.json.JsonObject;
 
+//TODO: write javadoc for class. Clean up if needed.
 public class MainVerticle extends AbstractVerticle {
   @Override
   public void start(){

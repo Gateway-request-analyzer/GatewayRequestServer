@@ -23,19 +23,19 @@ public class RateLimiter {
   private static final int EXPIRY_TIME = 180;
 
   /**
-   * Constructor for class rateLimiter. Will have "client" as an input parameter.
-   * Initializes the redis variable to interact with the database.
-   *  client -  will be client
+   * Constructor for class RateLimiter.
+   * @param redis- initializes the redis variable to interact with the database.
+   * @param pub- initializes the pub variable to publish actions.
    */
   public RateLimiter(RedisAPI redis, RedisConnection pub) {
     this.redis = redis;
     this.pub = pub;
   }
 
-  //Do we need javadoc for private methods?
+
   /**
-   * Method for saving a key and value in the database. If succeeded it will add an expiry time  to the key.
-   * @param key- a string with a key.
+   * Method for saving a key and value in the database. If succeeded it will add an expiry time to the key.
+   * @param key- a new key not already existing in the database.
    */
  private void saveKeyValue(String key) {
    redis.setnx(key, "1").onComplete(setHandler -> {
@@ -57,9 +57,10 @@ public class RateLimiter {
      }
    });
  }
+
   /**
-   * Method for unpacking an event and checking the database with each parameter within the event.
-   * @param event-  an event object containing identifying features for an event.
+   * Method for unpacking an incoming event and checking the database with each parameter within the event.
+   * @param event- an event object containing identifying features for an event.
    */
  public void unpackEvent(Event event){
    checkDatabase(event.getIp());
@@ -70,8 +71,8 @@ public class RateLimiter {
 
   /**
    * Method for checking if a key exists in the database. If it exists the value is incremented. If not,
-   * it calls setValue and creates a new key. If the value being incremented is more than 5, the requests are too many.
-   * @param -  a string representing a key in the database. Will create a new key = s if it does not exist.
+   * it calls setValue and creates a new key. If the value being incremented is more than expiry time, the requests are too many.
+   * @param s-  a string representing a key in the database. Will create a new key = s if it does not exist.
    */
  private void checkDatabase(String s) {
    AtomicInteger value = new AtomicInteger();
@@ -93,7 +94,7 @@ public class RateLimiter {
            this.publish(s, "blocked");
          }
          else {
-           //get/create keys for previous minutes within time frame to check if total number of requests is reached
+           //Get/create keys for previous minutes within time frame to check if total number of requests is reached
            List<String> prevKeys = new ArrayList<>();
            for (int i = 1; i <= (EXPIRY_TIME / 60); i++) {
              int prevMinute = (Integer.parseInt(currentMinute) - i) % 60;
@@ -142,8 +143,12 @@ public class RateLimiter {
    });
  }
 
+  /**
+   * Method for publishing action decided by the rate limiter with pub/sub.
+   * @param ip- a string representing the IP address.
+   * @param action- a string representing the action.
+   */
   private void publish(String ip, String action){
-
     this.pub.send(Request.cmd(Command.PUBLISH)
         .arg("channel1")
         .arg(ip + " " +  action))

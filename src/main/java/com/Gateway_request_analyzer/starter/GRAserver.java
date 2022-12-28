@@ -15,6 +15,7 @@ import io.vertx.redis.client.impl.RedisClient;
 import java.util.HashMap;
 import java.util.Objects;
 
+//TODO: write javadoc for class
 public class GRAserver {
 
   Vertx vertx;
@@ -62,18 +63,14 @@ public class GRAserver {
   }
 
   private void subscriptionSetUp(){
-
-
       this.sub.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
       this.sub.handler(message -> {
-
         Buffer buf;
         String str = message.toString();
         System.out.println(str);
         System.out.println("Message recieved from pubsub: " + str);
 
         for(ServerWebSocket socket : openConnections.values()) {
-
           JsonObject json = new JsonObject();
           json.put("Action", str);
           buf = json.toBuffer();
