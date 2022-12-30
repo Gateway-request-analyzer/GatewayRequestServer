@@ -12,8 +12,8 @@ import io.vertx.core.parsetools.JsonEvent;
 public class Event {
   private String ip, userId, session, URI;
 
-  //TODO: toJson, DecodeJson in this class
-  //TODO: some cleaning up
+  //TODO: toJson, DecodeJson in this class.
+  //TODO: javadoc comments and some cleaning up.
 
   public Event(Buffer msg) {
     JsonObject json = (JsonObject) Json.decodeValue(msg);
@@ -39,7 +39,7 @@ public class Event {
     return userId;
   }
 
-
+//TODO: remove method if not used
   public JsonObject toJson(){
     JsonObject jsonEvent = new JsonObject();
     jsonEvent.put("IP", this.ip);
