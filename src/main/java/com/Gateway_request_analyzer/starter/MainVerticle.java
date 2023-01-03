@@ -7,7 +7,9 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.json.JsonObject;
 
-//TODO: write javadoc for class. Clean up if needed.
+/**
+ * Class containing the main verticle. Each server gets its own instance of this verticle.
+ */
 public class MainVerticle extends AbstractVerticle {
   @Override
   public void start(){

@@ -15,7 +15,9 @@ import io.vertx.redis.client.impl.RedisClient;
 import java.util.HashMap;
 import java.util.Objects;
 
-//TODO: write javadoc for class
+/**
+ * A class containing the GRAserver.
+ */
 public class GRAserver {
 
   Vertx vertx;
@@ -26,6 +28,13 @@ public class GRAserver {
   //Make this a HashMap
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
 
+  /**
+   * Contructor setting up the server. Calls createServer()
+   * @param vertx
+   * @param rateLimiter
+   * @param sub
+   * @param port
+   */
   public GRAserver(Vertx vertx, RateLimiter rateLimiter, RedisConnection sub, int port){
     this.vertx = vertx;
     this.rateLimiter = rateLimiter;
@@ -35,6 +44,9 @@ public class GRAserver {
 
   }
 
+  /**
+   * Method for creating the server
+   */
   public void createServer(){
 
     subscriptionSetUp();

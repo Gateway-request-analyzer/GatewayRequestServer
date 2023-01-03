@@ -1,8 +1,6 @@
 package com.Gateway_request_analyzer.starter;
-import io.vertx.core.Vertx;
 import io.vertx.redis.client.*;
 
-import java.sql.SQLOutput;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -10,7 +8,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Class that uses the connection to Redis database and checks if client should be rate limited
+ * Class that uses the connection to Redis database and checks if client should be rate limited.
+ * The result is published using the Pub/Sub-connection
  */
 
 public class RateLimiter {
