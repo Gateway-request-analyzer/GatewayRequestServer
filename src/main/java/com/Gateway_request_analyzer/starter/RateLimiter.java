@@ -37,14 +37,14 @@ public class RateLimiter {
    * @param key- a new key not already existing in the database.
    */
  private void saveKeyValue(String key) {
-   redis.setnx(key, "1").onComplete(setHandler -> {
+   redis.setnx(key, "0").onComplete(setHandler -> {
      if (setHandler.succeeded()) {
        List<String> expParams = new ArrayList<>();
        expParams.add(key);
        expParams.add(Integer.toString(EXPIRY_TIME));
        redis.expire(expParams, expHandler -> {
          if (expHandler.succeeded()) {
-           System.out.println("Expiry time set for " + EXPIRY_TIME + "seconds for: " + key);
+           System.out.println("Expiry time set for " + EXPIRY_TIME + " seconds for: " + key);
          }
          else {
            System.out.println("Could not set expiry time");
@@ -84,60 +84,59 @@ public class RateLimiter {
        if (getHandler.result() == null){
            System.out.println("Key created: " + key);
            saveKeyValue(key);
-         }
+       }
        else {
          //Checks if limit for requests are reached the current minute
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
            System.out.print(" Too many requests for 1 minute: " + key);
            this.publish(s, "blocked");
+           return;
          }
-         else {
-           //Get/create keys for previous minutes within time frame to check if total number of requests is reached
-           List<String> prevKeys = new ArrayList<>();
-           for (int i = 1; i <= (EXPIRY_TIME / 60); i++) {
-             int prevMinute = (Integer.parseInt(currentMinute) - i) % 60;
-             String newKey = s + ":" + prevMinute;
-             prevKeys.add(newKey);
+       }
+       //Get keys for previous minutes within time frame to check if total number of requests is reached
+       List<String> prevKeys = new ArrayList<>();
+       for (int i = 1; i <= (EXPIRY_TIME / 60); i++) {
+         int prevMinute = (Integer.parseInt(currentMinute) - i) % 60;
+         String newKey = s + ":" + prevMinute;
+         prevKeys.add(newKey);
+       }
+       //use redis multiget to get all requests
+       redis.mget(prevKeys).onComplete(handler -> {
+         if(handler.succeeded()) {
+           int requests = value.get();
+           // Summation of all number of requests within time frame
+           Iterator<Response> it = handler.result().iterator();
+           while (it.hasNext()) {
+             Response r = it.next();
+             if (r == null) {
+               requests += 0;
+             }
+             else {
+               requests += r.toInteger();
+             }
            }
-           //use redis multiget to get all requests
-           redis.mget(prevKeys).onComplete(handler -> {
-             if(handler.succeeded()) {
-               int requests = value.get();
-               // Summation of all number of requests within time frame
-               Iterator<Response> it = handler.result().iterator();
-               while (it.hasNext()) {
-                 Response r = it.next();
-                 if (r == null) {
-                   requests += 0;
-                 }
-                 else {
-                   requests += r.toInteger();
-                 }
-               }
-               System.out.print("  Total requests: " + requests);
-               if (requests >= MAX_REQUESTS_TIMEFRAME) {
-                 System.out.print(" Too many requests for time frame" );
-                 this.publish(s, "blocked");
+           System.out.print("  Total requests: " + requests);
+           if (requests >= MAX_REQUESTS_TIMEFRAME) {
+             System.out.print(" Too many requests for time frame " );
+             this.publish(s, "blocked");
+           }
+           else {
+             redis.incr(key).onComplete(handlerIncr -> {
+               if (handlerIncr.succeeded()) {
+                 System.out.println(" Allow request ");
+                 this.publish(s, "Allow");
                }
                else {
-                 redis.incr(key).onComplete(handlerIncr -> {
-                   if (handlerIncr.succeeded()) {
-                     System.out.println(" Allow request ");
-                     this.publish(s, "Allow");
-                     }
-                   else {
-                     handlerIncr.cause();
-                   }
-                 });
+                 handlerIncr.cause();
                }
-             }
-           });
+             });
+           }
          }
-       }
-       if (getHandler.failed()) {
-         System.out.println("Couldn't get value at key");
-       }
+       });
+     }
+     if (getHandler.failed()) {
+       System.out.println("Couldn't get value at key");
      }
    });
  }
