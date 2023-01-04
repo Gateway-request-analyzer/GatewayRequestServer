@@ -124,7 +124,7 @@ public class RateLimiter {
                  redis.incr(key).onComplete(handlerIncr -> {
                    if (handlerIncr.succeeded()) {
                      System.out.println(" Allow request ");
-                       //send info to gateway
+                     this.publish(s, "Allow");
                      }
                    else {
                      handlerIncr.cause();
@@ -144,13 +144,13 @@ public class RateLimiter {
 
   /**
    * Method for publishing action decided by the rate limiter with pub/sub.
-   * @param ip- a string representing the IP address.
+   * @param param- a string representing the rate limited parameter.
    * @param action- a string representing the action.
    */
-  private void publish(String ip, String action){
+  private void publish(String param, String action){
     this.pub.send(Request.cmd(Command.PUBLISH)
         .arg("channel1")
-        .arg(ip + " " +  action))
+        .arg(param + " " +  action))
       .onSuccess(res -> {
         //Published
         //System.out.println("Message successfully published to pub/sub!");
