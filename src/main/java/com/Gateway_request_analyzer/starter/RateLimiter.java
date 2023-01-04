@@ -94,15 +94,9 @@ public class RateLimiter {
            return;
          }
        }
-       //Get keys for previous minutes within time frame to check if total number of requests is reached
        List<String> prevKeys = new ArrayList<>();
-       for (int i = 1; i <= (EXPIRY_TIME / 60); i++) {
-         int prevMinute = (Integer.parseInt(currentMinute) - i) % 60;
-         String newKey = s + ":" + prevMinute;
-         prevKeys.add(newKey);
-       }
-       //use redis multiget to get all requests
-       redis.mget(prevKeys).onComplete(handler -> {
+       //use redis multiget to get all requests, the createPrevKeyList is used to create the list used as a parameter.
+       redis.mget(createPrevKeyList(1, s, currentMinute, prevKeys)).onComplete(handler -> {
          if(handler.succeeded()) {
            int requests = value.get();
            // Summation of all number of requests within time frame
@@ -139,6 +133,27 @@ public class RateLimiter {
        System.out.println("Couldn't get value at key");
      }
    });
+ }
+
+
+  /**
+   * Method for creating a list of previous keys within the time frame using recursion
+   * @param i - integer representing number of minutes from baseMinutes
+   * @param s - String representing the parameter being rate limited
+   * @param baseMinute - minute when current request was made
+   * @param list - a list for storing all previous keys
+   * @return list of all possible previous keys within the time frame
+   */
+ private List<String> createPrevKeyList (int i, String s, String baseMinute, List<String> list) {
+   if ( i > (EXPIRY_TIME / 60)) {
+     return list;
+   }
+   else {
+     int prevMinute = (Integer.parseInt(baseMinute) - i) % 60;
+     String newKey =  s + ":" + prevMinute;
+     list.add(newKey);
+     return createPrevKeyList(i+1, s, baseMinute, list);
+   }
  }
 
   /**
