@@ -25,7 +25,7 @@ public class GRAserver {
   RedisConnection sub;
   int port;
 
-  //Make this a HashMap
+
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
 
   /**

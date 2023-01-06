@@ -16,9 +16,6 @@ public class ServerVerticle extends AbstractVerticle {
   RedisAPI redis;
   RedisConnection pub;
   RedisConnection sub;
-  //TODO: remove these two below if not used?
-  AsyncResult<RedisConnection> asyncSub;
-  AsyncResult<RedisConnection> asyncPub;
   int port;
 
 
@@ -106,11 +103,3 @@ public class ServerVerticle extends AbstractVerticle {
   }
 
 }
-
-//TODO: remove this below?
-/*
-* Deklarera connection i pub/sub connection synkront. Koppla inte för varje.
-* Skicka inte vidare en future.
-* Vänta tills futures är klara i startmetoden, assignera dom efteråt.
-*
-* */

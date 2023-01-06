@@ -1,12 +1,8 @@
 package com.Gateway_request_analyzer.starter;
 
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.parsetools.JsonEvent;
 
 /**
  * Class that takes a message containing all request information and converts it into a JsonObject.
