@@ -12,9 +12,6 @@ import io.vertx.core.json.JsonObject;
 public class Event {
   private String ip, userId, session, URI;
 
-  //TODO: toJson, DecodeJson in this class.
-  //TODO: javadoc comments and some cleaning up.
-
   /**
    * Method for unpacking a request into strings for each parameter.
    * @param msg - message received from the gateway
@@ -55,7 +52,6 @@ public class Event {
     return userId;
   }
 
-//TODO: remove method if not used
 
   /**
    * Method for packing an event into a JsonObject

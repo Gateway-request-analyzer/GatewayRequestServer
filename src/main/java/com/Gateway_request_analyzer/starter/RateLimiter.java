@@ -43,11 +43,8 @@ public class RateLimiter {
        expParams.add(key);
        expParams.add(Integer.toString(EXPIRY_TIME));
        redis.expire(expParams, expHandler -> {
-         if (expHandler.succeeded()) {
-           System.out.println("Expiry time set for " + EXPIRY_TIME + " seconds for: " + key);
-         }
-         else {
-           System.out.println("Could not set expiry time");
+         if (!expHandler.succeeded()) {
+           System.out.println("Could not set expiry time for: " + key);
          }
        });
      }
@@ -80,25 +77,27 @@ public class RateLimiter {
 
    redis.get(key).onComplete( getHandler -> {
      if (getHandler.succeeded()) {
+
        //Create key for current minute if it does not exist
        if (getHandler.result() == null){
            System.out.println("Key created: " + key);
            saveKeyValue(key);
        }
        else {
+
          //Checks if limit for requests are reached the current minute
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
-           System.out.print(" Too many requests for 1 minute: " + key);
            this.publish(s, "blocked");
            return;
          }
        }
-       List<String> prevKeys = new ArrayList<>();
        //use redis multiget to get all requests, the createPrevKeyList is used to create the list used as a parameter.
+       List<String> prevKeys = new ArrayList<>();
        redis.mget(createPrevKeyList(1, s, currentMinute, prevKeys)).onComplete(handler -> {
          if(handler.succeeded()) {
            int requests = value.get();
+
            // Summation of all number of requests within time frame
            Iterator<Response> it = handler.result().iterator();
            while (it.hasNext()) {
@@ -110,15 +109,12 @@ public class RateLimiter {
                requests += r.toInteger();
              }
            }
-           System.out.print("  Total requests: " + requests);
            if (requests >= MAX_REQUESTS_TIMEFRAME) {
-             System.out.print(" Too many requests for time frame " );
              this.publish(s, "blocked");
            }
            else {
              redis.incr(key).onComplete(handlerIncr -> {
                if (handlerIncr.succeeded()) {
-                 System.out.println(" Allow request ");
                  this.publish(s, "Allow");
                }
                else {
@@ -134,7 +130,6 @@ public class RateLimiter {
      }
    });
  }
-
 
   /**
    * Method for creating a list of previous keys within the time frame using recursion
@@ -168,7 +163,6 @@ public class RateLimiter {
       .onSuccess(res -> {
         //Published
         //System.out.println("Message successfully published to pub/sub!");
-
       }).onFailure(err -> {
         System.out.println("Publisher error: " + err.getCause());
       });

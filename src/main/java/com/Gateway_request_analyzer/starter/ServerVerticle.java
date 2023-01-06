@@ -32,23 +32,13 @@ public class ServerVerticle extends AbstractVerticle {
     ).onComplete(handler -> {
       databaseConnection(vertx);
       System.out.println("Return value: " + this.pub);
-     // System.out.println("Sub = " + this.sub);
       RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub);
       GRAserver server = new GRAserver(vertx, rateLimiter, this.sub, this.port);
 
     }).onFailure(error -> {
       System.out.println("Error establishing pub/sub and/or redis connection: " + error.getMessage());
     });
-
-    //TODO: remove this below?
-    /*
-    När detta körs måste alla connections vara öppna, kör dessa i en callback
-    Tänk på att allt händer asynkront.
-     */
-
   }
-    //TODO: editconfig -> jsonfile : new port
-    // Write javadoc for retrieveConfig() method.
 
   private void retrieveConfig(){
     ConfigRetriever.create(vertx).getConfig(jsonConfig ->{

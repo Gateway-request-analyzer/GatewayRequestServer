@@ -20,26 +20,5 @@ public class MainVerticle extends AbstractVerticle {
       jo.put("port", 3000+i).put("host", "localhost");
       vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo));
     }
-    /*
-    JsonObject jo = new JsonObject();
-    jo.put("port", 3000);
-    jo.put("host", "localhost");
-
-    vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo));
-
-    JsonObject jo2 = new JsonObject();
-    jo2.put("port", 3001);
-    jo2.put("host", "localhost");
-
-    vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo2));
-
-    JsonObject jo3 = new JsonObject();
-    jo3.put("port", 3002);
-    jo3.put("host", "localhost");
-
-    vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo3));
-*/
   }
-
-
 }
