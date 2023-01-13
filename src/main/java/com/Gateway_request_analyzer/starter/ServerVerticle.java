@@ -3,8 +3,6 @@ package com.Gateway_request_analyzer.starter;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.core.*;
 import io.vertx.redis.client.*;
-
-import java.lang.module.Configuration;
 import java.util.List;
 
 

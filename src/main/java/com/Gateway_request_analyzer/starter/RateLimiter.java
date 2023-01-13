@@ -1,6 +1,6 @@
 package com.Gateway_request_analyzer.starter;
-import io.vertx.redis.client.*;
 
+import io.vertx.redis.client.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;

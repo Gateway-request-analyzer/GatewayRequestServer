@@ -1,19 +1,11 @@
 package com.Gateway_request_analyzer.starter;
 
-import io.vertx.config.ConfigRetriever;
-import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.ServerWebSocket;
-import io.vertx.core.http.WebSocket;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
-import io.vertx.redis.client.impl.RedisClient;
-
 import java.util.HashMap;
-import java.util.Objects;
 
 /**
  * A class containing the GRAserver.
