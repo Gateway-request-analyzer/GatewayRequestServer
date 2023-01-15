@@ -63,9 +63,8 @@ public class RateLimiter {
    */
  public void unpackEvent(Event event){
    checkDatabase(event.getIp());
-   //checkDatabase(event.getSession());
-   //checkDatabase(event.getURI());
-   //checkDatabase(event.getUserId());
+   checkDatabase(event.getSession());
+   checkDatabase(event.getUserId());
   }
 
   /**
@@ -119,7 +118,6 @@ public class RateLimiter {
              redis.incr(key).onComplete(handlerIncr -> {
                if (handlerIncr.succeeded()) {
                  System.out.println(" Allow request ");
-                 this.publish(s, "Allow");
                }
                else {
                  handlerIncr.cause();
@@ -164,7 +162,7 @@ public class RateLimiter {
   private void publish(String param, String action){
     this.pub.send(Request.cmd(Command.PUBLISH)
         .arg("channel1")
-        .arg(param + " " +  action))
+        .arg(param + " " + action))
       .onSuccess(res -> {
         //Published
         //System.out.println("Message successfully published to pub/sub!");
