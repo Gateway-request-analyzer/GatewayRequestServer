@@ -63,7 +63,6 @@ public class GRAserver {
       }).onFailure(err -> {
         System.out.println("Connection to port " + this.port + " refused");
       });
-
   }
 
   private void subscriptionSetUp(){

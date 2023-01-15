@@ -1,6 +1,6 @@
 package com.Gateway_request_analyzer.starter;
-import io.vertx.redis.client.*;
 
+import io.vertx.redis.client.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -79,12 +79,14 @@ public class RateLimiter {
 
    redis.get(key).onComplete( getHandler -> {
      if (getHandler.succeeded()) {
+
        //Create key for current minute if it does not exist
        if (getHandler.result() == null){
            System.out.println("Key created: " + key);
            saveKeyValue(key);
        }
        else {
+
          //Checks if limit for requests are reached the current minute
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
@@ -103,7 +105,7 @@ public class RateLimiter {
            while (it.hasNext()) {
              Response r = it.next();
              if (r == null) {
-               requests += 0;
+              // requests += 0;
              }
              else {
                requests += r.toInteger();
@@ -118,9 +120,11 @@ public class RateLimiter {
              redis.incr(key).onComplete(handlerIncr -> {
                if (handlerIncr.succeeded()) {
                  System.out.println(" Allow request ");
+                 //Unnecessary
+                 //this.publish(s, "Allow");
                }
                else {
-                 handlerIncr.cause();
+                 System.out.println("Increment failed in Redis: " + handlerIncr.cause());
                }
              });
            }
@@ -152,6 +156,13 @@ public class RateLimiter {
      list.add(newKey);
      return createPrevKeyList(i+1, s, baseMinute, list);
    }
+ }
+
+ private void insertBlockedList(String s){
+  redis.expiretime(s).onComplete(handler -> {
+    System.out.println("Current expiry time: " + handler.result().toLong());
+  });
+
  }
 
   /**
