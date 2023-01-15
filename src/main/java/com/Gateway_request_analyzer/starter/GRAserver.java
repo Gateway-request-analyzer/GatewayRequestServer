@@ -71,13 +71,12 @@ public class GRAserver {
       this.sub.handler(message -> {
         Buffer buf;
         String str = message.toString();
-        System.out.println(str);
+        //System.out.println(str);
         System.out.println("Message recieved from pubsub: " + str);
 
         for(ServerWebSocket socket : openConnections.values()) {
-          JsonObject json = new JsonObject();
-          json.put("Action", str);
-          buf = json.toBuffer();
+          Action action = new Action(str);
+          buf = action.toJson().toBuffer();
           socket.writeBinaryMessage(buf);
         }
       });
