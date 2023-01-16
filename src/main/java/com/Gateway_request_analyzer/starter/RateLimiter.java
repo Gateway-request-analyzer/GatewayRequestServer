@@ -33,6 +33,25 @@ public class RateLimiter {
     this.pub = pub;
   }
 
+  /**
+  * Function for setting expiry times to Redis key sets
+   * @param key - Name of data set
+   * @param time - Time of expiry
+  * */
+
+  private void setExpiry(String key, int time){
+    List<String> expParams = new ArrayList<>();
+    expParams.add(key);
+    expParams.add(Integer.toString(time));
+    redis.expire(expParams, expHandler -> {
+      if (expHandler.succeeded()) {
+        System.out.println("Expiry time set for " + time + " seconds for: " + key);
+      }
+      else {
+        System.out.println("Could not set expiry time");
+      }
+    });
+  }
 
   /**
    * Method for saving a key and value in the database. If succeeded it will add an expiry time to the key.
@@ -41,6 +60,10 @@ public class RateLimiter {
  private void saveKeyValue(String key) {
    redis.setnx(key, "0").onComplete(setHandler -> {
      if (setHandler.succeeded()) {
+
+       setExpiry(key, EXPIRY_TIME);
+
+       /*
        List<String> expParams = new ArrayList<>();
        expParams.add(key);
        expParams.add(Integer.toString(EXPIRY_TIME));
@@ -52,7 +75,12 @@ public class RateLimiter {
            System.out.println("Could not set expiry time");
          }
        });
+
+       */
+
      }
+
+
      else {
        System.out.println("Couldn't set value at given key");
      }
@@ -255,15 +283,10 @@ public class RateLimiter {
     json.put("action", action);
     Buffer buf = json.toBuffer();
     this.pub.send(Request.cmd(Command.PUBLISH)
-        .arg("channel1")
-        .arg(param + " " + action))
-      .onSuccess(res -> {
-        //Published
-        //System.out.println("Message successfully published to pub/sub!");
-
-      }).onFailure(err -> {
-        System.out.println("Publisher error: " + err.getCause());
-      });
+        .arg("channel1").arg(buf))
+        .onFailure(err -> {
+          System.out.println("Failed to publish single action to pub/sub: " + err.getCause());
+        });
   }
 }
 
