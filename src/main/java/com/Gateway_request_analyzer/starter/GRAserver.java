@@ -32,6 +32,7 @@ public class GRAserver {
     this.rateLimiter = rateLimiter;
     this.sub = sub;
     this.port = port;
+    subscriptionSetUp();
     this.createServer();
 
   }
@@ -41,10 +42,13 @@ public class GRAserver {
    */
   public void createServer(){
 
-    subscriptionSetUp();
-
       vertx.createHttpServer().webSocketHandler(handler -> {
         System.out.println("Client " + handler.binaryHandlerID() + " connected to port " + this.port);
+
+        //New client connected, publish list of currently blocked user
+        //Currently publishes to ALL connected clients, might need improvement
+        //Unnecessary overhead
+        rateLimiter.publishBlockedSet();
 
         //socket = handler
         openConnections.put(handler.binaryHandlerID(), handler);
@@ -53,6 +57,7 @@ public class GRAserver {
           Event event = new Event(msg);
           rateLimiter.unpackEvent(event);
         });
+
         handler.closeHandler(msg -> {
           openConnections.remove(handler.binaryHandlerID());
           System.out.println("Client " + handler.binaryHandlerID() + " disconnected from port " + this.port);
@@ -65,20 +70,29 @@ public class GRAserver {
       });
   }
 
+  /**
+   * Handles messages published to pub/sub
+   *
+   * Lets Action-class parse the message into a JsonObject
+   * If message does not contain a string on valid JsonFormat, a NullPointerException is thrown
+   * Package JsonObject to buffer and send message to all connected clients
+   */
   private void subscriptionSetUp(){
-      this.sub.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
-      this.sub.handler(message -> {
-        Buffer buf;
-        String str = message.toString();
-        //System.out.println(str);
-        System.out.println("Message recieved from pubsub: " + str);
+    this.sub.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
+    this.sub.handler(message -> {
+
+      Action action = new Action(message.toString());
+
+      try{
+        Buffer buf = action.toJson().toBuffer();
+        System.out.println("buffer successful: " + buf);
 
         for(ServerWebSocket socket : openConnections.values()) {
-          Action action = new Action(str);
-          buf = action.toJson().toBuffer();
           socket.writeBinaryMessage(buf);
         }
-      });
+      }catch(NullPointerException e){
+        System.out.println("Not a valid json string");
+      }
+    });
   }
-
 }

@@ -1,5 +1,7 @@
 package com.Gateway_request_analyzer.starter;
 
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -62,9 +64,11 @@ public class RateLimiter {
    * @param event- an event object containing identifying features for an event.
    */
  public void unpackEvent(Event event){
+
    checkDatabase(event.getIp());
    checkDatabase(event.getSession());
    checkDatabase(event.getUserId());
+
   }
 
   /**
@@ -90,7 +94,10 @@ public class RateLimiter {
          //Checks if limit for requests are reached the current minute
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
-           System.out.print(" Too many requests for 1 minute: " + key);
+           System.out.println(" Too many requests for 1 minute: " + key);
+           //add user to redis block-list
+           setBlockedList(s);
+           //publish action to pub/sub
            this.publish(s, "blocked");
            return;
          }
@@ -114,6 +121,9 @@ public class RateLimiter {
            System.out.print("  Total requests: " + requests);
            if (requests >= MAX_REQUESTS_TIMEFRAME) {
              System.out.print(" Too many requests for time frame " );
+             //add user to redis block-list
+             setBlockedList(s);
+             //publish action to pub/sub
              this.publish(s, "blocked");
            }
            else {
@@ -158,12 +168,84 @@ public class RateLimiter {
    }
  }
 
- private void insertBlockedList(String s){
-  redis.expiretime(s).onComplete(handler -> {
-    System.out.println("Current expiry time: " + handler.result().toLong());
-  });
+
+ /**
+  * Adds blocked items to SaveStatelist named "Blocked:x" where x is the current minute
+  * @param s - Name of blocked identifier (user/ip/session)
+  * */
+ private void setBlockedList(String s){
+
+   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+   String key = "Blocked:" + currentMinute;
+   List<String> param = new ArrayList<>();
+   param.add(key);
+   param.add(s);
+
+   redis.get(key).onComplete(handler -> {
+     //check if set already exists, add expiry-time if it doesn't
+     if(handler.result() == null){
+       redis.sadd(param).onComplete(comp -> {
+         if(comp.succeeded()){
+           setExpiry(key, 60);
+         } else {
+           System.out.println("Error in making blocked set");
+         }
+       });
+     //if set already does exist, simply add identifier(user/ip/session) to set
+     } else {
+        redis.sadd(param).onSuccess(success -> {
+          System.out.println("Successfully added IP to key: " + s);
+        }).onFailure(err -> {
+          System.out.println("Error in adding to blockedlist: " + err.getMessage());
+        });
+     }
+   });
 
  }
+
+  /**
+   * This method is used to publish the saveState
+   *
+   * Fetches the set of identifiers(user/ip/session) blocked for the current minute
+   * and parses them to a JsonObject with format "i":"identifier" where
+   * i = {0,1,2,...,n - 1}, n = number of blocked identifiers
+   *
+   * Finally, publishes this JsonObject to pub/sub
+   */
+ public void publishBlockedSet(){
+
+   JsonObject jsonBlockList = new JsonObject();
+   jsonBlockList.put("type", "saveState");
+
+   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+   String key = "Blocked:" + currentMinute;
+
+   //fetch blocked identifiers
+   redis.smembers(key).onComplete(handler -> {
+     Iterator<Response> it = handler.result().iterator();
+     int i = 0;
+     while(it.hasNext()){
+
+       String identifier = it.next().toString();
+       System.out.println(identifier);
+       jsonBlockList.put(Integer.toString(i), identifier);
+       i++;
+     }
+
+     Buffer buf = jsonBlockList.toBuffer();
+
+     pub.send(Request.cmd(Command.PUBLISH)
+       .arg("channel1").arg(buf))
+       .onFailure(err ->{
+         System.out.println("Failed to publish blocked-list to pub/sub");
+       });
+
+
+   }).onFailure(err -> {
+     System.out.println("Error in fetching currently blocked set: " + err.getMessage());
+   });
+ }
+
 
   /**
    * Method for publishing action decided by the rate limiter with pub/sub.
@@ -171,6 +253,11 @@ public class RateLimiter {
    * @param action- a string representing the action.
    */
   private void publish(String param, String action){
+    JsonObject json = new JsonObject();
+    json.put("type", "single");
+    json.put("identifier", param);
+    json.put("action", action);
+    Buffer buf = json.toBuffer();
     this.pub.send(Request.cmd(Command.PUBLISH)
         .arg("channel1")
         .arg(param + " " + action))

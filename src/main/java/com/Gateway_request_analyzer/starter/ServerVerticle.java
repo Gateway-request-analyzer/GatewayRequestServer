@@ -3,7 +3,11 @@ package com.Gateway_request_analyzer.starter;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.core.*;
 import io.vertx.redis.client.*;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -90,4 +94,29 @@ public class ServerVerticle extends AbstractVerticle {
     });
   }
 
+
+  /*
+  private void periodicUpdate(){
+    this.vertx.setPeriodic(60000, handler -> {
+
+      String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+
+      List<String> setParams = new ArrayList<>();
+      setParams.add("Blocked:" + currentMinute);
+      setParams.add("null");
+      this.redis.sadd(setParams);
+
+      List<String> expParams = new ArrayList<>();
+      expParams.add("Blocked:" + currentMinute);
+      expParams.add(Integer.toString(60));
+      redis.expire(expParams, expHandler -> {
+        if (expHandler.succeeded()) {
+          System.out.println("Expiry time set for " + 60 + " seconds for blocked set: " + currentMinute);
+        }
+      });
+    });
+
+}
+
+   */
 }
