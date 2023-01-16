@@ -64,11 +64,9 @@ public class RateLimiter {
    * @param event- an event object containing identifying features for an event.
    */
  public void unpackEvent(Event event){
-
    checkDatabase(event.getIp());
    checkDatabase(event.getSession());
    checkDatabase(event.getUserId());
-
   }
 
   /**
@@ -118,7 +116,6 @@ public class RateLimiter {
                requests += r.toInteger();
              }
            }
-           System.out.print("  Total requests: " + requests);
            if (requests >= MAX_REQUESTS_TIMEFRAME) {
              System.out.print(" Too many requests for time frame " );
              //add user to redis block-list
@@ -146,7 +143,6 @@ public class RateLimiter {
      }
    });
  }
-
 
   /**
    * Method for creating a list of previous keys within the time frame using recursion
