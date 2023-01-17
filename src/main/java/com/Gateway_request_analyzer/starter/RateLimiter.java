@@ -127,7 +127,7 @@ public class RateLimiter {
            else {
              redis.incr(key).onComplete(handlerIncr -> {
                if (handlerIncr.succeeded()) {
-                 System.out.println(" Allow request ");
+                 System.out.println(" Allow request for " + key);
                  //Unnecessary
                  //this.publish(s, "Allow");
                }
