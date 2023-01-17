@@ -17,7 +17,6 @@ public class GRAserver {
   RedisConnection sub;
   int port;
 
-
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
 
   /**
@@ -41,7 +40,6 @@ public class GRAserver {
    * Method for creating the server
    */
   public void createServer(){
-
       vertx.createHttpServer().webSocketHandler(handler -> {
         System.out.println("Client " + handler.binaryHandlerID() + " connected to port " + this.port);
 

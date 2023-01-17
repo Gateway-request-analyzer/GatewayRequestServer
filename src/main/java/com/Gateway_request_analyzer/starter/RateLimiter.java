@@ -44,10 +44,7 @@ public class RateLimiter {
     expParams.add(key);
     expParams.add(Integer.toString(time));
     redis.expire(expParams, expHandler -> {
-      if (expHandler.succeeded()) {
-        System.out.println("Expiry time set for " + time + " seconds for: " + key);
-      }
-      else {
+      if (!expHandler.succeeded()) {
         System.out.println("Could not set expiry time");
       }
     });
@@ -60,27 +57,8 @@ public class RateLimiter {
  private void saveKeyValue(String key) {
    redis.setnx(key, "0").onComplete(setHandler -> {
      if (setHandler.succeeded()) {
-
        setExpiry(key, EXPIRY_TIME);
-
-       /*
-       List<String> expParams = new ArrayList<>();
-       expParams.add(key);
-       expParams.add(Integer.toString(EXPIRY_TIME));
-       redis.expire(expParams, expHandler -> {
-         if (expHandler.succeeded()) {
-           System.out.println("Expiry time set for " + EXPIRY_TIME + " seconds for: " + key);
-         }
-         else {
-           System.out.println("Could not set expiry time");
-         }
-       });
-
-       */
-
      }
-
-
      else {
        System.out.println("Couldn't set value at given key");
      }
@@ -116,14 +94,11 @@ public class RateLimiter {
            saveKeyValue(key);
        }
        else {
-
          //Checks if limit for requests are reached the current minute
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
-           System.out.println(" Too many requests for 1 minute: " + key);
            //add user to redis block-list
            setBlockedList(s);
-           //publish action to pub/sub
            this.publish(s, "blocked");
            return;
          }
@@ -145,10 +120,8 @@ public class RateLimiter {
              }
            }
            if (requests >= MAX_REQUESTS_TIMEFRAME) {
-             System.out.print(" Too many requests for time frame " );
              //add user to redis block-list
              setBlockedList(s);
-             //publish action to pub/sub
              this.publish(s, "blocked");
            }
            else {
@@ -198,7 +171,6 @@ public class RateLimiter {
   * @param s - Name of blocked identifier (user/ip/session)
   * */
  private void setBlockedList(String s){
-
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
    String key = "Blocked:" + currentMinute;
    List<String> param = new ArrayList<>();
@@ -249,7 +221,6 @@ public class RateLimiter {
      Iterator<Response> it = handler.result().iterator();
      int i = 0;
      while(it.hasNext()){
-
        String identifier = it.next().toString();
        System.out.println(identifier);
        jsonBlockList.put(Integer.toString(i), identifier);
