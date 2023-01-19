@@ -176,7 +176,9 @@ public class RateLimiter {
    List<String> param = new ArrayList<>();
    param.add(key);
    param.add(s);
-
+   // Create a sortedSet instead of set with a timestamp of the expirytime
+   // Check all expieries when adding a value
+   // Add a single key/value pair with type and expriery
    redis.get(key).onComplete(handler -> {
      //check if set already exists, add expiry-time if it doesn't
      if(handler.result() == null){
@@ -210,6 +212,7 @@ public class RateLimiter {
    */
  public void publishBlockedSet(){
 
+   // When fetching saveState sortedSet, also multiget all members for type
    JsonObject jsonBlockList = new JsonObject();
    jsonBlockList.put("type", "saveState");
 
@@ -229,6 +232,9 @@ public class RateLimiter {
 
      Buffer buf = jsonBlockList.toBuffer();
 
+
+     // This should not be published, return list instead
+     // Need to add
      pub.send(Request.cmd(Command.PUBLISH)
        .arg("channel1").arg(buf))
        .onFailure(err ->{

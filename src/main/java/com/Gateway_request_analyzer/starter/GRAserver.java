@@ -46,6 +46,7 @@ public class GRAserver {
         //New client connected, publish list of currently blocked user
         //Currently publishes to ALL connected clients, might need improvement
         //Unnecessary overhead
+        // Send this only to most recently connected client
         rateLimiter.publishBlockedSet();
 
         //socket = handler
@@ -78,7 +79,7 @@ public class GRAserver {
   private void subscriptionSetUp(){
     this.sub.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
     this.sub.handler(message -> {
-
+      // [message, channel1, {"ip":"1.1.1.1}]
       Action action = new Action(message.toString());
 
       try{
