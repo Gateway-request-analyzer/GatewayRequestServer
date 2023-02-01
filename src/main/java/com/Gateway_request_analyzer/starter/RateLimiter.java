@@ -1,8 +1,12 @@
 package com.Gateway_request_analyzer.starter;
 
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -21,7 +25,11 @@ public class RateLimiter {
   private RedisConnection pub;
   private static final int MAX_REQUESTS_PER_1MIN = 5;
   private static final int MAX_REQUESTS_TIMEFRAME = 12;
+  private static final long ONE_MINUTE_MILLIS = 60000;
+  private static final long FIVE_MINUTES_MILLIS = 300000;
+
   private static final int EXPIRY_TIME = 180;
+  private JsonObject completeSaveState = new JsonObject();
 
   /**
    * Constructor for class RateLimiter.
@@ -70,9 +78,9 @@ public class RateLimiter {
    * @param event- an event object containing identifying features for an event.
    */
  public void unpackEvent(Event event){
-   checkDatabase(event.getIp());
-   checkDatabase(event.getSession());
-   checkDatabase(event.getUserId());
+   checkDatabase(event.getIp(), "ips");
+   checkDatabase(event.getSession(), "sessions");
+   checkDatabase(event.getUserId(), "userIds");
   }
 
   /**
@@ -80,7 +88,7 @@ public class RateLimiter {
    * it calls setValue and creates a new key. If the value being incremented is more than expiry time, the requests are too many.
    * @param s-  a string representing a key in the database. Will create a new key = s if it does not exist.
    */
- private void checkDatabase(String s) {
+ private void checkDatabase(String s, String type) {
    AtomicInteger value = new AtomicInteger();
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
    String key = s + ":" + currentMinute;
@@ -98,8 +106,8 @@ public class RateLimiter {
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
            //add user to redis block-list
-           setBlockedList(s);
-           this.publish(s, "blocked");
+           setSortedBlocked(s, type, ONE_MINUTE_MILLIS);
+           this.publish(s, "blocked", type, ONE_MINUTE_MILLIS);
            return;
          }
        }
@@ -121,15 +129,13 @@ public class RateLimiter {
            }
            if (requests >= MAX_REQUESTS_TIMEFRAME) {
              //add user to redis block-list
-             setBlockedList(s);
-             this.publish(s, "blocked");
+             setSortedBlocked(s, type, FIVE_MINUTES_MILLIS);
+             this.publish(s, "blocked", type, FIVE_MINUTES_MILLIS);
            }
            else {
              redis.incr(key).onComplete(handlerIncr -> {
                if (handlerIncr.succeeded()) {
                  System.out.println(" Allow request for " + key);
-                 //Unnecessary
-                 //this.publish(s, "Allow");
                }
                else {
                  System.out.println("Increment failed in Redis: " + handlerIncr.cause());
@@ -164,6 +170,63 @@ public class RateLimiter {
      return createPrevKeyList(i+1, s, baseMinute, list);
    }
  }
+
+
+ private void setSortedBlocked(String s, String type, long timeBlocked){
+
+   String removeBlockedTimestamp = String.valueOf(System.currentTimeMillis() + timeBlocked);
+   List<String> params = new ArrayList<>();
+
+   params.add(type);
+   params.add(removeBlockedTimestamp);
+   params.add(s);
+
+   redis.zadd(params);
+   redis.zremrangebyscore(type, "0", removeBlockedTimestamp);
+
+ }
+
+ public void getSaveState(ServerWebSocket socket){
+   completeSaveState = new JsonObject();
+   completeSaveState.put("publishType", "saveState");
+
+   CompositeFuture.all(List.of(
+     serializeSet("ips"),
+     serializeSet("sessions"),
+     serializeSet("userIds"))
+   ).onComplete(handler -> {
+
+     socket.writeBinaryMessage(completeSaveState.toBuffer());
+   });
+ }
+
+  private Future<Response> serializeSet(String type){
+
+    JsonObject tempJson = new JsonObject();
+    List<String> params = new ArrayList<>();
+
+    params.add(type);
+    params.add("0");
+    params.add("-1");
+    params.add("WITHSCORES");
+
+    return redis.zrange(params).onSuccess(handler -> {
+
+      Iterator<Response> it = handler.iterator();
+
+      while(it.hasNext()){
+        Response response = it.next();
+        String value = String.valueOf(response.get(0));
+        String timeStamp = String.valueOf(response.get(1));
+        tempJson.put(value, timeStamp);
+      }
+
+      completeSaveState.put(type, tempJson);
+
+    }).onFailure(err -> {
+      System.out.println("Failed to retrieve sorted set: " + err);
+    });
+  }
 
 
  /**
@@ -253,9 +316,12 @@ public class RateLimiter {
    * @param param- a string representing the rate limited parameter.
    * @param action- a string representing the action.
    */
-  private void publish(String param, String action){
+  private void publish(String param, String action, String type, long blockedTime){
+    String time = String.valueOf(System.currentTimeMillis() + blockedTime);
     JsonObject json = new JsonObject();
-    json.put("type", "single");
+    json.put("publishType", "single");
+    json.put("type", type);
+    json.put("blockedTime", time);
     json.put("identifier", param);
     json.put("action", action);
     Buffer buf = json.toBuffer();
