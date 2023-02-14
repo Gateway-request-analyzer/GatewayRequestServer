@@ -184,6 +184,10 @@ public class RateLimiter {
    String currentTime = String.valueOf(System.currentTimeMillis());
    List<String> params = new ArrayList<>();
 
+   //ZADD saveState 100 '{"actionType":"blockByUserId","value":"user1","source":"rateLimiter"}'
+
+
+
    params.add("saveState");
    params.add(action.timeString());
    params.add(action.toJson().toString());
@@ -192,20 +196,21 @@ public class RateLimiter {
    redis.zremrangebyscore("saveState", "-inf", currentTime);
 
  }
-
+/*
  public void getSaveState(ServerWebSocket socket){
    completeSaveState = new JsonObject();
    completeSaveState.put("publishType", "saveState");
 
    CompositeFuture.all(List.of(
-     serializeSet("ips"),
-     serializeSet("sessions"),
-     serializeSet("userIds"))
+     serializeSet("saveState"))
+     //serializeSet("sessions"),
+     //serializeSet("userIds"))
    ).onComplete(handler -> {
 
      socket.writeBinaryMessage(completeSaveState.toBuffer());
    });
  }
+*/
 
   public void getSaveState(Consumer<Buffer> onTest, Consumer<String> onTestFailure){
 
