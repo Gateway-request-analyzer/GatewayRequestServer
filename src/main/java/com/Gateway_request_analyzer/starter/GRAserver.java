@@ -45,7 +45,11 @@ public class GRAserver {
         System.out.println("Client " + handler.binaryHandlerID() + " connected to port " + this.port);
 
         //New client connected, publish list of currently blocked user
-        rateLimiter.getSaveState(handler);
+        rateLimiter.getSaveState(redisdata -> {
+          handler.writeBinaryMessage(redisdata);
+        }, failedData -> {
+          System.out.println("Message recieved from rateLimiter: " + failedData);
+        });
 
         //socket = handler
         openConnections.put(handler.binaryHandlerID(), handler);

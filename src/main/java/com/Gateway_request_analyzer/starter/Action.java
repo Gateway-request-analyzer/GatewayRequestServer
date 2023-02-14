@@ -3,24 +3,35 @@ package com.Gateway_request_analyzer.starter;
 import io.vertx.core.json.JsonObject;
 
 public class Action {
-  JsonObject returnJson;
+  JsonObject returnJson = new JsonObject();
+  String value;
+  String actionType;
+  long timeBlocked;
+  String publishType;
+  String blockSource;
 
-  public Action(String pubSubString){
-    //Remove the first part of the pub/sub message: "[message, channel1,"
-    String choppedString = pubSubString.substring(20);
+  public Action(String value, String actionType, long timeBlocked, String publishType, String blockSource){
+    this.value = value;
+    this.actionType = actionType;
+    this.timeBlocked = System.currentTimeMillis() + timeBlocked;
+    this.publishType = publishType;
+    this.blockSource = blockSource;
 
-    //Remove the last bracket: "]"
-    choppedString = choppedString.substring(0, choppedString.length() - 1);
-
-    //", 1" if it's the subscription message
-    //"block {}" if it's an empty json buffer
-    if(!choppedString.equals(", 1") && !choppedString.equals("block {}")) {
-      //choppedString is now a valid json string and can be placed inside a JsonObject
-      this.returnJson = new JsonObject(choppedString);
-    }
   }
 
   public JsonObject toJson(){
+    returnJson.put("blockedSource", blockSource);
+    returnJson.put("actionType", actionType);
+    returnJson.put("blockedTime", String.valueOf(timeBlocked));
+    returnJson.put("value", value);
+    returnJson.put("publishType", publishType);
     return returnJson;
+  }
+
+  public void setPublishType(String publishType){
+    this.publishType = publishType;
+  }
+  public String timeString(){
+    return String.valueOf(timeBlocked);
   }
 }

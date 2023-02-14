@@ -4,14 +4,19 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.ServerWebSocket;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
 
+import java.security.Provider;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Class that uses the connection to Redis database and checks if client should be rate limited.
@@ -78,9 +83,9 @@ public class RateLimiter {
    * @param event- an event object containing identifying features for an event.
    */
  public void unpackEvent(Event event){
-   checkDatabase(event.getIp(), "ips");
-   checkDatabase(event.getSession(), "sessions");
-   checkDatabase(event.getUserId(), "userIds");
+   checkDatabase(event.getIp(), "Ip");
+   checkDatabase(event.getSession(), "Session");
+   checkDatabase(event.getUserId(), "UserId");
   }
 
   /**
@@ -106,8 +111,9 @@ public class RateLimiter {
          value.set(Integer.parseInt(getHandler.result().toString()));
          if (value.get() >= MAX_REQUESTS_PER_1MIN) {
            //add user to redis block-list
-           setSortedBlocked(s, type, ONE_MINUTE_MILLIS);
-           this.publish(s, "blocked", type, ONE_MINUTE_MILLIS);
+           Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
+           setSortedBlocked(currentAction);
+           this.publish(currentAction);
            return;
          }
        }
@@ -129,8 +135,9 @@ public class RateLimiter {
            }
            if (requests >= MAX_REQUESTS_TIMEFRAME) {
              //add user to redis block-list
-             setSortedBlocked(s, type, FIVE_MINUTES_MILLIS);
-             this.publish(s, "blocked", type, FIVE_MINUTES_MILLIS);
+             Action currentAction = new Action(s, "blockedBy" + type, FIVE_MINUTES_MILLIS, "single", "rateLimiter");
+             setSortedBlocked(currentAction);
+             this.publish(currentAction);
            }
            else {
              redis.incr(key).onComplete(handlerIncr -> {
@@ -172,17 +179,17 @@ public class RateLimiter {
  }
 
 
- private void setSortedBlocked(String s, String type, long timeBlocked){
+ private void setSortedBlocked(Action action){
 
-   String removeBlockedTimestamp = String.valueOf(System.currentTimeMillis() + timeBlocked);
+   String currentTime = String.valueOf(System.currentTimeMillis());
    List<String> params = new ArrayList<>();
 
-   params.add(type);
-   params.add(removeBlockedTimestamp);
-   params.add(s);
+   params.add("saveState");
+   params.add(action.timeString());
+   params.add(action.toJson().toString());
 
    redis.zadd(params);
-   redis.zremrangebyscore(type, "0", removeBlockedTimestamp);
+   redis.zremrangebyscore("saveState", "-inf", currentTime);
 
  }
 
@@ -200,31 +207,31 @@ public class RateLimiter {
    });
  }
 
-  private Future<Response> serializeSet(String type){
+  public void getSaveState(Consumer<Buffer> onTest, Consumer<String> onTestFailure){
 
-    JsonObject tempJson = new JsonObject();
+    JsonObject saveState = new JsonObject();
+    saveState.put("publishType", "saveState");
     List<String> params = new ArrayList<>();
 
-    params.add(type);
+    params.add("saveState");
     params.add("0");
     params.add("-1");
-    params.add("WITHSCORES");
 
-    return redis.zrange(params).onSuccess(handler -> {
+    redis.zrange(params).onSuccess(handler -> {
 
       Iterator<Response> it = handler.iterator();
 
       while(it.hasNext()){
-        Response response = it.next();
-        String value = String.valueOf(response.get(0));
-        String timeStamp = String.valueOf(response.get(1));
-        tempJson.put(value, timeStamp);
-      }
-
-      completeSaveState.put(type, tempJson);
+          Response response = it.next();
+          JsonObject value = new JsonObject(String.valueOf(response.get(0)));
+          saveState.put(value.getString("value"), value);
+        }
+          onTest.accept(saveState.toBuffer());
 
     }).onFailure(err -> {
       System.out.println("Failed to retrieve sorted set: " + err);
+      onTestFailure.accept("Failed to fetch saveState: " + err.getCause());
+
     });
   }
 
@@ -313,18 +320,11 @@ public class RateLimiter {
 
   /**
    * Method for publishing action decided by the rate limiter with pub/sub.
-   * @param param- a string representing the rate limited parameter.
-   * @param action- a string representing the action.
    */
-  private void publish(String param, String action, String type, long blockedTime){
-    String time = String.valueOf(System.currentTimeMillis() + blockedTime);
-    JsonObject json = new JsonObject();
-    json.put("publishType", "single");
-    json.put("type", type);
-    json.put("blockedTime", time);
-    json.put("identifier", param);
-    json.put("action", action);
-    Buffer buf = json.toBuffer();
+  private void publish(Action action){
+    System.out.println("Action taken: " + action.value + " has been " + action.actionType);
+
+    Buffer buf = action.toJson().toBuffer();
     this.pub.send(Request.cmd(Command.PUBLISH)
         .arg("channel1").arg(buf))
         .onFailure(err -> {
