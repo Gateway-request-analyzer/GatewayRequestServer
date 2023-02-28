@@ -10,12 +10,16 @@ import io.vertx.core.json.JsonObject;
 public class MainVerticle extends AbstractVerticle {
   @Override
   public void start(){
+    TokenAuthorizer auth = new TokenAuthorizer();
 
     //amounts of servers started
+
     for(int i = 0; i < 1; i++){
       JsonObject jo = new JsonObject();
       jo.put("port", 3000+i).put("host", "localhost");
       vertx.deployVerticle(new ServerVerticle(), new DeploymentOptions().setConfig(jo));
     }
+
+
   }
 }
