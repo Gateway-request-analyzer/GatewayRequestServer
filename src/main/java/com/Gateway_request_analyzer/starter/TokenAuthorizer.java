@@ -22,21 +22,20 @@ public class TokenAuthorizer {
   }
 
   public void verifyToken(){
-    String token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJraWQiOiIxMjM0IiwibmFtZSI6IkVtZWwiLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg4ODgvIn0.sBi3lbElQOt03XQfYJ7Ya_AU82fr-mQkYsxhQ29qWDUMOeOa9CpJf7mjcHkkM5pM8wukURxPTaxdcY9tzkSpj9PZfQPrQ030m5o-6ZQkbtjljAGe-7yz7wj1sskFEQmhQrqgTCOY4O7PbyZ3S878uNZnjSLK34w3__CLKKo6kwQfpcCYAG1XO1GMAOI5DavZWzDEwAJwsZGgEkpGERMpkzrzw2kJwt6fsVtLNqiVduDoOLNo0gzAX2JxvDz_QEm62_811RucuiPOf7hLBPmf9lwhC32-rQ4EM5fT6VpPOWOcBeObMUyBBq2GrvbgpeddTfFiJlTman2mNguu6HBdnw";
+    String token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJleHAiOjE2Nzc1OTkwNjF9.FZOEEMYTCff988u4jdNHAgxvsi_onOlaqFB2PrYpcUb8qYLzcbu5Ru-z9RVCNdesgtudZnOurD6eaPy5XkEE9hHN19y-TLH7ygFuufImUc1V25sYPmhcX8zvi3OI-LQwyPH0-qafqUJm3uGWW3SbuYRQ0rCwLCS_h8t3h0FBTxPBK94G5Fyeu486n6e8jc0k9Z0ncXWlb25r2DwskTqSZcpvEiT0QsE3Zi75CnpitqEvm0qmpWwLYp40Gp-Rbyz63uw6TmYRIJSvErNL4cqbiwUTdVQyUwA2RuYcdItdJATR-uJw7EzyaqN89FGdKZjvySW3GDmQUIZn_vrARPyhMg";
     RSAPublicKey publicKey = getPublicKey();
     DecodedJWT decodedJWT;
     try {
       Algorithm algorithm = Algorithm.RSA256(publicKey);
       JWTVerifier verifier = JWT.require(algorithm)
         // specify a specific claim validations
-        .withIssuer("http://localhost:8888/")
         .build();
 
       decodedJWT = verifier.verify(token);
-      System.out.println("legit token");
+      System.out.println("valid token: " + decodedJWT.getToken());
     } catch (JWTVerificationException exception){
       // Invalid signature/claims
-      System.out.println("not legit token");
+      System.out.println("not valid token");
     }
   }
 
