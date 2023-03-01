@@ -10,7 +10,6 @@ import io.vertx.core.json.JsonObject;
 public class MainVerticle extends AbstractVerticle {
   @Override
   public void start(){
-    TokenAuthorizer auth = new TokenAuthorizer();
 
     //amounts of servers started
 

@@ -17,25 +17,28 @@ import java.util.Base64;
 
 public class TokenAuthorizer {
 
+  RSAPublicKey publicKey;
+
   public TokenAuthorizer(){
-    verifyToken();
+
+    publicKey = getPublicKey();
   }
 
-  public void verifyToken(){
-    String token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJleHAiOjE2Nzc1OTkwNjF9.FZOEEMYTCff988u4jdNHAgxvsi_onOlaqFB2PrYpcUb8qYLzcbu5Ru-z9RVCNdesgtudZnOurD6eaPy5XkEE9hHN19y-TLH7ygFuufImUc1V25sYPmhcX8zvi3OI-LQwyPH0-qafqUJm3uGWW3SbuYRQ0rCwLCS_h8t3h0FBTxPBK94G5Fyeu486n6e8jc0k9Z0ncXWlb25r2DwskTqSZcpvEiT0QsE3Zi75CnpitqEvm0qmpWwLYp40Gp-Rbyz63uw6TmYRIJSvErNL4cqbiwUTdVQyUwA2RuYcdItdJATR-uJw7EzyaqN89FGdKZjvySW3GDmQUIZn_vrARPyhMg";
-    RSAPublicKey publicKey = getPublicKey();
+  public boolean verifyToken(String token){
+    //String token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJleHAiOjE2Nzc1OTkwNjF9.FZOEEMYTCff988u4jdNHAgxvsi_onOlaqFB2PrYpcUb8qYLzcbu5Ru-z9RVCNdesgtudZnOurD6eaPy5XkEE9hHN19y-TLH7ygFuufImUc1V25sYPmhcX8zvi3OI-LQwyPH0-qafqUJm3uGWW3SbuYRQ0rCwLCS_h8t3h0FBTxPBK94G5Fyeu486n6e8jc0k9Z0ncXWlb25r2DwskTqSZcpvEiT0QsE3Zi75CnpitqEvm0qmpWwLYp40Gp-Rbyz63uw6TmYRIJSvErNL4cqbiwUTdVQyUwA2RuYcdItdJATR-uJw7EzyaqN89FGdKZjvySW3GDmQUIZn_vrARPyhMg";
     DecodedJWT decodedJWT;
     try {
-      Algorithm algorithm = Algorithm.RSA256(publicKey);
+      Algorithm algorithm = Algorithm.RSA256(this.publicKey);
       JWTVerifier verifier = JWT.require(algorithm)
         // specify a specific claim validations
         .build();
 
       decodedJWT = verifier.verify(token);
       System.out.println("valid token: " + decodedJWT.getToken());
+      return true;
     } catch (JWTVerificationException exception){
       // Invalid signature/claims
-      System.out.println("not valid token");
+      return false;
     }
   }
 

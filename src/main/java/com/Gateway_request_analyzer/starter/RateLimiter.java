@@ -228,7 +228,7 @@ public class RateLimiter {
 
       while(it.hasNext()){
           Response response = it.next();
-          JsonObject value = new JsonObject(String.valueOf(response.get(0)));
+          JsonObject value = new JsonObject(String.valueOf(response));
           saveState.put(value.getString("value"), value);
         }
           onTest.accept(saveState.toBuffer());

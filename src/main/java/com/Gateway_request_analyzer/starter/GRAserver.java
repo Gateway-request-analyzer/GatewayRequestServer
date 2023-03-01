@@ -1,10 +1,13 @@
 package com.Gateway_request_analyzer.starter;
 
+import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
+import io.vertx.redis.client.impl.types.Multi;
+
 import java.util.HashMap;
 import java.util.Objects;
 
@@ -16,6 +19,8 @@ public class GRAserver {
   Vertx vertx;
   RateLimiter rateLimiter;
   RedisConnection sub;
+
+  TokenAuthorizer tokenAuthorizer;
   int port;
 
   private HashMap<String, ServerWebSocket> openConnections = new HashMap<>();
@@ -32,6 +37,7 @@ public class GRAserver {
     this.rateLimiter = rateLimiter;
     this.sub = sub;
     this.port = port;
+    tokenAuthorizer = new TokenAuthorizer();
     subscriptionSetUp();
     this.createServer();
 
@@ -41,9 +47,18 @@ public class GRAserver {
    * Method for creating the server
    */
   public void createServer(){
+
+
+      // TODO: Kan en token autentiseras i websocket, isåfall hur?
       vertx.createHttpServer().webSocketHandler(handler -> {
         System.out.println("Client " + handler.binaryHandlerID() + " connected to port " + this.port);
 
+        MultiMap headers = handler.headers();
+
+        if(!tokenAuthorizer.verifyToken(headers.get("Authorization"))){
+          System.out.println("Client " + handler.binaryHandlerID() + " was refused due to invalid token");
+          handler.reject(418);
+        }
         //New client connected, publish list of currently blocked user
         rateLimiter.getSaveState(redisdata -> {
           handler.writeBinaryMessage(redisdata);
@@ -54,9 +69,18 @@ public class GRAserver {
         //socket = handler
         openConnections.put(handler.binaryHandlerID(), handler);
 
+        // TODO: autentisera token?
         handler.binaryMessageHandler(msg -> {
           Event event = new Event(msg);
-          rateLimiter.unpackEvent(event);
+          System.out.println(msg.toString());
+          if(!tokenAuthorizer.verifyToken(event.getSession())){
+            //TODO: take correct action
+            handler.close().onComplete(h -> {
+              System.out.println(h.result());
+            });
+          } else {
+            rateLimiter.unpackEvent(event);
+          }
         });
 
         handler.closeHandler(msg -> {
