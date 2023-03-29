@@ -75,6 +75,7 @@ public class GRAserver {
           System.out.println(msg.toString());
           if(!tokenAuthorizer.verifyToken(event.getSession())){
             //TODO: take correct action
+            //TODO:
             handler.close().onComplete(h -> {
               System.out.println(h.result());
             });

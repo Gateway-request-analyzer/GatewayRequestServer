@@ -10,7 +10,7 @@ import io.vertx.core.json.JsonObject;
  */
 
 public class Event {
-  private String ip, userId, session, URI;
+  private String ip, userId, session, URI, token;
 
   /**
    * Method for unpacking a request into strings for each parameter.
@@ -22,6 +22,7 @@ public class Event {
     this.userId = json.getString("userId");
     this.session = json.getString("session");
     this.URI = json.getString("URI");
+    this.token = json.getString("Authorization");
   }
 
   /**
