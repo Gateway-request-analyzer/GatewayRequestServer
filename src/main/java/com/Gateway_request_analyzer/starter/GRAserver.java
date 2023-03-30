@@ -19,7 +19,6 @@ public class GRAserver {
   Vertx vertx;
   RateLimiter rateLimiter;
   RedisConnection sub;
-
   TokenAuthorizer tokenAuthorizer;
   int port;
 

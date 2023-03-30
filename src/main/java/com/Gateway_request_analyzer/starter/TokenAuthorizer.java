@@ -12,22 +12,18 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.KeyFactory;
-import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.concurrent.atomic.AtomicReference;
 
 
 public class TokenAuthorizer {
-  String kid = null;
-  RSAPublicKey publicKey;
-  Vertx vertx;
+  private String kid = null;
+  private RSAPublicKey publicKey;
+  private Vertx vertx;
+  private long timer;
 
   public TokenAuthorizer(Vertx vertx){
     this.vertx = vertx;
-    fetchPublicKey();
+    fetchPublicKey(3);
   }
 
   public boolean verifyToken(String token){
@@ -48,12 +44,18 @@ public class TokenAuthorizer {
     }
   }
 
-  public void fetchPublicKey() {
+  public void fetchPublicKey(long delay) {
+    if(delay > 60){
+      delay = 60;
+    }
+    timer = delay;
 
     WebClient.create(vertx)
       .get(8080, "localhost", "/.well-known/jwks.json")
       .send()
       .onSuccess(response -> {
+        timer = 1;
+
         JsonObject res = new JsonObject(response.bodyAsString());
         kid = res.getJsonArray("keys").getJsonObject(0).getString("kid");
         System.out.println("Key ID successfully fetched: " + kid);
@@ -63,18 +65,23 @@ public class TokenAuthorizer {
 
         try {
           this.publicKey = (RSAPublicKey) provider.get(kid).getPublicKey();
-          System.out.println("Public key: successfully fetched:");
-          System.out.println(this.publicKey);
+          System.out.println("Public key successfully fetched!");
+          System.out.println("Ready to verify tokens!");
         } catch(JwkException e){
-          System.out.println("Failed to fetch key");
-          System.out.println("Trying again");
-          System.out.println(e.getMessage());
-          fetchPublicKey();
+          System.out.println("Something went wrong fetching full key " + e.getMessage());
+          System.out.println("Attempting a new key fetch in " +  timer + " seconds");
+          vertx.setTimer(timer * 1000, handler -> {
+            fetchPublicKey(timer * 2);
+          });
         }
-
       })
-      .onFailure(err ->
-        System.out.println("Something went wrong fetching the Key ID" + err.getMessage()));
+      .onFailure(err -> {
+        System.out.println("Something went wrong fetching the Key ID " + err.getMessage());
+        System.out.println("Attempting a new key ID fetch in " +  timer + " seconds");
+        vertx.setTimer(timer * 1000, handler -> {
+          fetchPublicKey(timer * 2);
+        });
+      });
 
   }
 }
