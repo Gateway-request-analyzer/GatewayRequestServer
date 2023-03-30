@@ -46,10 +46,10 @@ public class TokenAuthorizer {
     try {
       String publicKeyContent = new String(Files.readAllBytes(Paths.get("public_key.pem")));
       publicKeyContent = publicKeyContent.replaceAll("\\n", "").replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "");
-
       KeyFactory kf = KeyFactory.getInstance("RSA");
 
       X509EncodedKeySpec keySpecX509 = new X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyContent));
+
       return (RSAPublicKey) kf.generatePublic(keySpecX509);
     }catch (Exception e){
       System.out.println("failed to retrieve key: " + e.getMessage() + " ");

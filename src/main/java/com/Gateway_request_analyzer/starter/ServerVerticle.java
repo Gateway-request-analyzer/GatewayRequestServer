@@ -90,7 +90,7 @@ public class ServerVerticle extends AbstractVerticle {
       System.out.println("Connection for subscription established for port: " + this.port);
       this.sub = conn;
     }).onFailure(error -> {
-      System.out.println("Connection for subscription establishment fialed: " + error.getMessage());
+      System.out.println("Connection for subscription establishment failed: " + error.getMessage());
     });
   }
 

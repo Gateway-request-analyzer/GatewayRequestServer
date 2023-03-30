@@ -57,7 +57,7 @@ public class GRAserver {
 
         if(!tokenAuthorizer.verifyToken(headers.get("Authorization"))){
           System.out.println("Client " + handler.binaryHandlerID() + " was refused due to invalid token");
-          handler.reject(418);
+          handler.reject(407);
         }
         //New client connected, publish list of currently blocked user
         rateLimiter.getSaveState(redisdata -> {
@@ -73,12 +73,12 @@ public class GRAserver {
         handler.binaryMessageHandler(msg -> {
           Event event = new Event(msg);
           System.out.println(msg.toString());
-          if(!tokenAuthorizer.verifyToken(event.getSession())){
+          if(!tokenAuthorizer.verifyToken(event.getToken())){
             //TODO: take correct action
             //TODO:
-            handler.close().onComplete(h -> {
-              System.out.println(h.result());
-            });
+
+            handler.close((short) 407, "Token expired");
+            System.out.println("Socket closed, token expired");
           } else {
             rateLimiter.unpackEvent(event);
           }

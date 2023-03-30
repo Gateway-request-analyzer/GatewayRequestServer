@@ -53,6 +53,11 @@ public class Event {
     return userId;
   }
 
+  /**
+   * @return a string containing the session token
+   * */
+
+  public String getToken() { return token; }
 
   /**
    * Method for packing an event into a JsonObject
