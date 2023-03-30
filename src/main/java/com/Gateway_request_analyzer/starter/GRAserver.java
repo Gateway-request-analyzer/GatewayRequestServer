@@ -37,7 +37,7 @@ public class GRAserver {
     this.rateLimiter = rateLimiter;
     this.sub = sub;
     this.port = port;
-    tokenAuthorizer = new TokenAuthorizer();
+    tokenAuthorizer = new TokenAuthorizer(vertx);
     subscriptionSetUp();
     this.createServer();
 

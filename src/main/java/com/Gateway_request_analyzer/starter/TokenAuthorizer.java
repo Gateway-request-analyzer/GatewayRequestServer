@@ -1,27 +1,33 @@
 package com.Gateway_request_analyzer.starter;
 
+import com.auth0.jwk.JwkException;
+import com.auth0.jwk.JwkProvider;
+import com.auth0.jwk.JwkProviderBuilder;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.WebClient;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
+import java.util.concurrent.atomic.AtomicReference;
+
 
 public class TokenAuthorizer {
-
+  String kid = null;
   RSAPublicKey publicKey;
+  Vertx vertx;
 
-  public TokenAuthorizer(){
-
-    publicKey = getPublicKey();
+  public TokenAuthorizer(Vertx vertx){
+    this.vertx = vertx;
+    fetchPublicKey();
   }
 
   public boolean verifyToken(String token){
@@ -42,19 +48,33 @@ public class TokenAuthorizer {
     }
   }
 
-  public RSAPublicKey getPublicKey() {
-    try {
-      String publicKeyContent = new String(Files.readAllBytes(Paths.get("public_key.pem")));
-      publicKeyContent = publicKeyContent.replaceAll("\\n", "").replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "");
-      KeyFactory kf = KeyFactory.getInstance("RSA");
+  public void fetchPublicKey() {
 
-      X509EncodedKeySpec keySpecX509 = new X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyContent));
+    WebClient.create(vertx)
+      .get(8080, "localhost", "/.well-known/jwks.json")
+      .send()
+      .onSuccess(response -> {
+        JsonObject res = new JsonObject(response.bodyAsString());
+        kid = res.getJsonArray("keys").getJsonObject(0).getString("kid");
+        System.out.println("Key ID successfully fetched: " + kid);
 
-      return (RSAPublicKey) kf.generatePublic(keySpecX509);
-    }catch (Exception e){
-      System.out.println("failed to retrieve key: " + e.getMessage() + " ");
-      e.printStackTrace();
-    }
-    return null;
+        JwkProvider provider = new JwkProviderBuilder("http://localhost:8080")
+          .build();
+
+        try {
+          this.publicKey = (RSAPublicKey) provider.get(kid).getPublicKey();
+          System.out.println("Public key: successfully fetched:");
+          System.out.println(this.publicKey);
+        } catch(JwkException e){
+          System.out.println("Failed to fetch key");
+          System.out.println("Trying again");
+          System.out.println(e.getMessage());
+          fetchPublicKey();
+        }
+
+      })
+      .onFailure(err ->
+        System.out.println("Something went wrong fetching the Key ID" + err.getMessage()));
+
   }
 }
