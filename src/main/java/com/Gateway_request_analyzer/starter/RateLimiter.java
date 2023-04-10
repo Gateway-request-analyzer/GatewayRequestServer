@@ -98,6 +98,11 @@ public class RateLimiter {
    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
    String key = s + ":" + currentMinute;
 
+   /**
+    * Kan man undvika att göra en Get?
+    * Annars, gör en multi-pipeline, alternativt med lua-script.
+    * */
+
    redis.get(key).onComplete( getHandler -> {
      if (getHandler.succeeded()) {
 
@@ -156,6 +161,7 @@ public class RateLimiter {
        System.out.println("Couldn't get value at key");
      }
    });
+
  }
 
   /**

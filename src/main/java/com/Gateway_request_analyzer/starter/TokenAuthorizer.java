@@ -51,7 +51,7 @@ public class TokenAuthorizer {
     timer = delay;
 
     WebClient.create(vertx)
-      .get(8080, "localhost", "/.well-known/jwks.json")
+      .get(8080, "192.168.0.139", "/.well-known/jwks.json")
       .send()
       .onSuccess(response -> {
         timer = 1;
@@ -60,7 +60,7 @@ public class TokenAuthorizer {
         kid = res.getJsonArray("keys").getJsonObject(0).getString("kid");
         System.out.println("Key ID successfully fetched: " + kid);
 
-        JwkProvider provider = new JwkProviderBuilder("http://localhost:8080")
+        JwkProvider provider = new JwkProviderBuilder("http://192.168.0.139:8080")
           .build();
 
         try {

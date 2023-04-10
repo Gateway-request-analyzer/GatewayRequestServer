@@ -28,6 +28,7 @@ public class ServerVerticle extends AbstractVerticle {
   @Override
   public void start(){
     retrieveConfig();
+    System.out.println("config retrived");
     CompositeFuture.all(List.of(
       subConnection(vertx),
       pubConnection(vertx))
@@ -55,7 +56,7 @@ public class ServerVerticle extends AbstractVerticle {
    * @param vertx- a vertx object.
    */
   private void databaseConnection(Vertx vertx){
-    Redis client = Redis.createClient(vertx, new RedisOptions());
+    Redis client = Redis.createClient(vertx, new RedisOptions().setConnectionString("redis://:123@redis:6379"));
     client.connect()
     .onSuccess(conn -> {
       System.out.println("Connection to Redis database established for port: " + port);
@@ -72,7 +73,10 @@ public class ServerVerticle extends AbstractVerticle {
    * @param vertx- a vertx object.
    */
   private Future<RedisConnection> pubConnection(Vertx vertx) {
-     return Redis.createClient(vertx, new RedisOptions()).connect().onSuccess(conn ->{
+
+    System.out.println("from pubConnection");
+     return Redis.createClient(vertx, new RedisOptions().setConnectionString("redis://:123@redis:6379")).connect()
+       .onSuccess(conn ->{
       System.out.println("Connection for publish established for port: " + this.port);
        this.pub = conn;
      }).onFailure(error -> {
@@ -86,7 +90,9 @@ public class ServerVerticle extends AbstractVerticle {
    * @param vertx- a vertx object.
    */
   private Future<RedisConnection> subConnection(Vertx vertx) {
-    return Redis.createClient(vertx, new RedisOptions()).connect().onSuccess( conn ->{
+    System.out.println("from subConnection");
+    return Redis.createClient(vertx, new RedisOptions().setConnectionString("redis://:123@redis:6379")).connect()
+      .onSuccess( conn ->{
       System.out.println("Connection for subscription established for port: " + this.port);
       this.sub = conn;
     }).onFailure(error -> {

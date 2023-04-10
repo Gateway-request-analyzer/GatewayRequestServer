@@ -12,7 +12,6 @@
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="GatewayRequestServer" target="11" />
-      <module name="starter" target="11" />
     </bytecodeTargetLevel>
   </component>
 </project>

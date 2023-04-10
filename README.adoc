@@ -1,4 +1,4 @@
-= Starter
+= GRA Server
 
 image:https://img.shields.io/badge/vert.x-4.3.4-purple.svg[link="https://vertx.io"]
 
@@ -19,6 +19,22 @@ To package your application:
 To run your application:
 ```
 ./mvnw clean compile exec:java
+```
+== Building with docker
+
+To start redis server with correct config (path may vary):
+```
+redis-server /usr/local/etc/redis.conf
+```
+
+To re-build the project with docker:
+```
+docker compose build
+```
+
+To run the project with docker:
+```
+docker compose up
 ```
 
 == Help

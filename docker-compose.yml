@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  gra-server:
+    build: .
+    ports:
+      - "3000:3000"
+  redis:
+    image: redis:latest
+    deploy:
+      replicas: 1
+    configs:
+      - my_config
+    command: "redis-server ../my_config"
+    ports:
+      - "6379:6379"
+configs:
+  my_config:
+    file: ./redis.conf
