@@ -47,13 +47,13 @@ public class GRAserver {
    */
   public void createServer(){
 
+    // TODO: Kolla ifall fler connections öppnas då en client stängts.
 
       // TODO: Kan en token autentiseras i websocket, isåfall hur?
       vertx.createHttpServer().webSocketHandler(handler -> {
         System.out.println("Client " + handler.binaryHandlerID() + " connected to port " + this.port);
 
         MultiMap headers = handler.headers();
-
         if(!tokenAuthorizer.verifyToken(headers.get("Authorization"))){
           System.out.println("Client " + handler.binaryHandlerID() + " was refused due to invalid token");
           handler.reject(407);
@@ -79,7 +79,9 @@ public class GRAserver {
             handler.close((short) 407, "Token expired");
             System.out.println("Socket closed, token expired");
           } else {
-            rateLimiter.unpackEvent(event);
+
+            //TODO: Optimize this according to new ratelimiter
+            rateLimiter.insertDB(event);
           }
         });
 
@@ -105,7 +107,7 @@ public class GRAserver {
   private void subscriptionSetUp(){
     this.sub.send(Request.cmd(Command.SUBSCRIBE).arg("channel1"));
     this.sub.handler(message -> {
-
+      System.out.println("Current message in subSetUp" + message);
       String msgData = message.get(2).toString();
 
       if (!Objects.equals(msgData, "1")) {

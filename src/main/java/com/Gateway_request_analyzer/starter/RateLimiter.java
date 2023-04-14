@@ -7,6 +7,7 @@ import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
+import io.vertx.redis.client.impl.RedisClient;
 
 import java.security.Provider;
 import java.text.SimpleDateFormat;
@@ -162,6 +163,65 @@ public class RateLimiter {
      }
    });
 
+ }
+
+ //TODO: Make buffered multi function handling reconnect speed
+
+ private void checkDBTimeframe(){
+
+ }
+
+
+ protected void insertDB(Event e){
+   AtomicInteger value = new AtomicInteger();
+
+   //String key = s + ':' + currentUnix;
+
+   //TODO: max pool size reached when doing it this way, implement Multi
+
+   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+   String eventIp = e.getIp() + ':' + currentMinute;
+   String eventSession = e.getSession() + ':' + currentMinute;
+   String eventUserId = e.getUserId() + ':' + currentMinute;
+
+
+      /**
+       * Add redis multi if buffering thousands of requests to allow one response.
+       * */
+    /*
+      redis.multi(handler -> {
+        insertDBValue(e.getIp(), "Ip");
+        insertDBValue(e.getSession(), "Session");
+        insertDBValue(e.getUserId(), "UserId");
+      });
+*/
+   insertDBValue(e.getIp(), "Ip");
+   insertDBValue(e.getSession(), "Session");
+   insertDBValue(e.getUserId(), "UserId");
+
+ }
+
+ private void insertDBValue(String s, String type){
+   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+   String eventMinute = s + ':' + currentMinute;
+   redis.incr(eventMinute).onComplete(handler -> {
+
+     if(!handler.result().toString().equals("QUEUED") ){
+
+       if(handler.result().toInteger() >= MAX_REQUESTS_PER_1MIN){
+           Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
+           setSortedBlocked(currentAction);
+           this.publish(currentAction);
+         } else if(handler.result().toInteger() == 1){
+           System.out.println("Adding block timer for: " + eventMinute);
+            setExpiry(eventMinute, EXPIRY_TIME);
+         }
+
+     }
+
+   }).onFailure(err -> {
+     System.out.println("Error adding " + s + " to database: " + err.getMessage());
+   });
  }
 
   /**
