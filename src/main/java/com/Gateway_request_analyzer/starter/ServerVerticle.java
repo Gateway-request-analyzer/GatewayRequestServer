@@ -53,7 +53,7 @@ public class ServerVerticle extends AbstractVerticle {
   }
 
   private RedisOptions clusterOptions(){
-   return new RedisOptions()
+    return new RedisOptions()
       .setType(RedisClientType.CLUSTER)
       .addConnectionString("redis://redis-node-1:6380")
       .addConnectionString("redis://redis-node-2:6381")
@@ -91,7 +91,6 @@ public class ServerVerticle extends AbstractVerticle {
   private Future<RedisConnection> pubConnection(Vertx vertx) {
 //Redis.createClient(vertx, new RedisOptions().setConnectionString("redis://:123@redis:6379")).connect()
     System.out.println("from pubConnection");
-
      return Redis.createClient(vertx, clusterOptions()).connect()
        .onSuccess(conn ->{
       System.out.println("Connection for publish established for port: " + this.port);
