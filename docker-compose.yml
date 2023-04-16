@@ -3,17 +3,149 @@ version: "3.9"
 services:
   gra-server:
     build: .
+    depends_on:
+      - redis-cluster
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+      - redis-node-4
+      - redis-node-5
+      - redis-node-6
     ports:
       - "3000:3000"
-  redis:
-    image: redis:latest
-    deploy:
-      replicas: 1
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.37
+
+  redis-cluster:
+    image: 'redis:latest'
+    command:  "redis-cli --cluster create 172.20.0.31:6380 172.20.0.32:6381 172.20.0.33:6382 172.20.0.34:6383 172.20.0.35:6384 172.20.0.36:6385 --cluster-replicas 1 --cluster-yes"
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.30
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+      - redis-node-4
+      - redis-node-5
+      - redis-node-6
+  redis-node-1:
+    image: 'redis:latest'
+    command: redis-server ../6380_config
     configs:
-      - my_config
-    command: "redis-server ../my_config"
+      - 6380_config
     ports:
-      - "6379:6379"
+      - '6380:6380'
+    volumes:
+      - redis-node-1-data:/var/lib/redis
+      - ./docker/redis-node-1.conf:/usr/local/etc/redis/redis.conf
+      - ./6380/nodes.conf:/6380/nodes.conf
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.31
+  redis-node-2:
+    image: 'redis:latest'
+    command: redis-server ../6381_config
+    configs:
+      - 6381_config
+    ports:
+      - '6381:6381'
+    volumes:
+      - redis-node-2-data:/var/lib/redis
+      - ./docker/redis-node-2.conf:/usr/local/etc/redis/redis.conf
+      - ./6381:/6381
+      - ./6381/nodes.conf:/6381/nodes.conf
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.32
+  redis-node-3:
+    image: 'redis:latest'
+    command: redis-server ../6382_config
+    configs:
+      - 6382_config
+    ports:
+      - '6382:6382'
+    volumes:
+      - redis-node-3-data:/var/lib/redis
+      - ./docker/redis-node-3.conf:/usr/local/etc/redis/redis.conf
+      - ./6382:/6382
+      - ./6382/nodes.conf:/6382/nodes.conf
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.33
+  redis-node-4:
+    image: 'redis:latest'
+    command: redis-server ../6383_config
+    configs:
+      - 6383_config
+    ports:
+      - '6383:6383'
+    volumes:
+      - redis-node-4-data:/var/lib/redis
+      - ./docker/redis-node-4.conf:/usr/local/etc/redis/redis.conf
+      - ./6383:/6383
+      - ./6383/nodes.conf:/6383/nodes.conf
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.34
+  redis-node-5:
+    image: 'redis:latest'
+    command: redis-server ../6384_config
+    configs:
+      - 6384_config
+    ports:
+      - '6384:6384'
+    volumes:
+      - redis-node-5-data:/var/lib/redis
+      - ./docker/redis-node-5.conf:/usr/local/etc/redis/redis.conf
+      - ./6384:/6384
+      - ./6384/nodes.conf:/6384/nodes.conf
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.35
+  redis-node-6:
+    image: 'redis:latest'
+    command: redis-server ../6385_config
+    configs:
+      - 6385_config
+    ports:
+      - '6385:6385'
+    volumes:
+      - redis-node-6-data:/var/lib/redis
+      - ./docker/redis-node-6.conf:/usr/local/etc/redis/redis.conf
+      - ./6385:/6385
+      - ./6385/nodes.conf:/6385/nodes.conf
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.36
+volumes:
+  redis-node-1-data:
+  redis-node-2-data:
+  redis-node-3-data:
+  redis-node-4-data:
+  redis-node-5-data:
+  redis-node-6-data:
+networks:
+  app_subnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
 configs:
-  my_config:
+  main_config:
     file: ./redis.conf
+  6380_config:
+    file: ./6380/redis.conf
+  6381_config:
+    file: ./6381/redis.conf
+  6382_config:
+    file: ./6382/redis.conf
+  6383_config:
+    file: ./6383/redis.conf
+  6384_config:
+    file: ./6384/redis.conf
+  6385_config:
+    file: ./6385/redis.conf
+

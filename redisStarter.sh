@@ -32,7 +32,7 @@ done
 # set up redis cluster
 CMD="redis-cli --cluster create"
 for i in $PORTS; do CMD+=" 127.0.0.1:$i"; done
-CMD+=" --cluster-replicas 1"
+CMD+=" --cluster-replicas 1 --cluster-yes"
 tmux send-keys "$CMD" Enter
 
 # attach session
