@@ -1,8 +1,16 @@
 version: "3.9"
 
 services:
+  auth-server:
+    build: ./AuthServer
+    ports:
+      - "8080:8080"
+      - "8888:8888"
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.39
   gra-server:
-    build: .
+    build: ./GatewayRequestServer
     depends_on:
       - redis
       - redis-cluster
@@ -12,6 +20,7 @@ services:
       - redis-node-4
       - redis-node-5
       - redis-node-6
+      - auth-server
     ports:
       - "3000:3000"
     networks:
@@ -68,7 +77,6 @@ services:
     volumes:
       - redis-node-2-data:/var/lib/redis
       - ./docker/redis-node-2.conf:/usr/local/etc/redis/redis.conf
-      - ./6381:/6381
       - ./6381/nodes.conf:/6381/nodes.conf
     networks:
       app_subnet:
@@ -83,7 +91,6 @@ services:
     volumes:
       - redis-node-3-data:/var/lib/redis
       - ./docker/redis-node-3.conf:/usr/local/etc/redis/redis.conf
-      - ./6382:/6382
       - ./6382/nodes.conf:/6382/nodes.conf
     networks:
       app_subnet:
@@ -98,7 +105,6 @@ services:
     volumes:
       - redis-node-4-data:/var/lib/redis
       - ./docker/redis-node-4.conf:/usr/local/etc/redis/redis.conf
-      - ./6383:/6383
       - ./6383/nodes.conf:/6383/nodes.conf
     networks:
       app_subnet:
@@ -113,7 +119,6 @@ services:
     volumes:
       - redis-node-5-data:/var/lib/redis
       - ./docker/redis-node-5.conf:/usr/local/etc/redis/redis.conf
-      - ./6384:/6384
       - ./6384/nodes.conf:/6384/nodes.conf
     networks:
       app_subnet:
@@ -128,11 +133,21 @@ services:
     volumes:
       - redis-node-6-data:/var/lib/redis
       - ./docker/redis-node-6.conf:/usr/local/etc/redis/redis.conf
-      - ./6385:/6385
       - ./6385/nodes.conf:/6385/nodes.conf
     networks:
       app_subnet:
         ipv4_address: 172.20.0.36
+  gra-proxy:
+    build: ./GatewayRequestClient
+    depends_on:
+      - auth-server
+      - gra-server
+    ports:
+      - "7890:7890"
+    networks:
+      app_subnet:
+        ipv4_address: 172.20.0.40
+
 volumes:
   redis-node-1-data:
   redis-node-2-data:
@@ -149,7 +164,7 @@ networks:
 
 configs:
   main_config:
-    file: ./redis.conf
+    file: ./GatewayRequestServer/redis.conf
   6380_config:
     file: ./6380/redis.conf
   6381_config:
