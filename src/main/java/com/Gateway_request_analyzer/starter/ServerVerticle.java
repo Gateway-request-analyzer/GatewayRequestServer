@@ -11,8 +11,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-
-
 /**
  * Class that starts the application and establishes connections with the database.
  */
@@ -31,14 +29,15 @@ public class ServerVerticle extends AbstractVerticle {
    */
   @Override
   public void start(){
+
     retrieveConfig();
     System.out.println("config retrieved");
     CompositeFuture.all(List.of(
       subConnection(vertx),
-      pubConnection(vertx))
+      pubConnection(vertx)
+      )
     ).onComplete(handler -> {
       databaseConnection(vertx);
-      System.out.println("Return value: " + this.pub);
       RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub);
       GRAserver server = new GRAserver(vertx, rateLimiter, this.sub, this.port);
 
@@ -53,6 +52,17 @@ public class ServerVerticle extends AbstractVerticle {
     });
   }
 
+  private RedisOptions clusterOptions(){
+    return new RedisOptions()
+      .setType(RedisClientType.CLUSTER)
+      .addConnectionString("redis://redis-node-1:6380")
+      .addConnectionString("redis://redis-node-2:6381")
+      .addConnectionString("redis://redis-node-3:6382")
+      .addConnectionString("redis://redis-node-4:6383")
+      .addConnectionString("redis://redis-node-5:6384")
+      .addConnectionString("redis://redis-node-6:6385");
+  }
+
 
   /**
    * Method for creating a connection with the database for the rate limiter. Initializes the "redis" object
@@ -61,18 +71,7 @@ public class ServerVerticle extends AbstractVerticle {
    */
   private void databaseConnection(Vertx vertx){
 
-    //First, create a few empty instances for Redis to connect to cluster with.
-// Configure the Redis client options
-    RedisOptions redisOptions = new RedisOptions()
-      .setType(RedisClientType.CLUSTER)
-      .setUseReplicas(RedisReplicas.ALWAYS)
-      .addConnectionString("redis://127.0.0.1:6380")
-      .addConnectionString("redis://127.0.0.1:6381")
-      .addConnectionString("redis://127.0.0.1:6382")
-      .addConnectionString("redis://127.0.0.1:6383")
-      .addConnectionString("redis://127.0.0.1:6384")
-      .addConnectionString("redis://127.0.0.1:6385");
-    Redis client = Redis.createClient(vertx, redisOptions);
+    Redis client = Redis.createClient(vertx, clusterOptions());
     client.connect()
     .onComplete(conn -> {
       System.out.println("Redis established with class: " + conn.result());
@@ -92,7 +91,7 @@ public class ServerVerticle extends AbstractVerticle {
   private Future<RedisConnection> pubConnection(Vertx vertx) {
 //Redis.createClient(vertx, new RedisOptions().setConnectionString("redis://:123@redis:6379")).connect()
     System.out.println("from pubConnection");
-     return Redis.createClient(vertx, new RedisOptions().setPassword("123")).connect()
+     return Redis.createClient(vertx, clusterOptions()).connect()
        .onSuccess(conn ->{
       System.out.println("Connection for publish established for port: " + this.port);
        this.pub = conn;
@@ -108,7 +107,7 @@ public class ServerVerticle extends AbstractVerticle {
    */
   private Future<RedisConnection> subConnection(Vertx vertx) {
     System.out.println("from subConnection");
-    return Redis.createClient(vertx, new RedisOptions().setPassword("123")).connect()
+    return Redis.createClient(vertx, clusterOptions()).connect()
       .onSuccess( conn ->{
       System.out.println("Connection for subscription established for port: " + this.port);
       this.sub = conn;
