@@ -52,7 +52,7 @@ public class TokenAuthorizer {
     //192.168.0.139 -> localhost
     //need exact IP when running with docker
     WebClient.create(vertx)
-      .get(8080, "192.168.0.139", "/.well-known/jwks.json")
+      .get(8080, "auth-server", "/.well-known/jwks.json")
       .send()
       .onSuccess(response -> {
         timer = 1;
@@ -62,7 +62,7 @@ public class TokenAuthorizer {
         System.out.println("Key ID successfully fetched: " + kid);
 
         //Need exact IP when connecting with docker
-        JwkProvider provider = new JwkProviderBuilder("http://192.168.0.139:8080")
+        JwkProvider provider = new JwkProviderBuilder("http://auth-server:8080")
           .build();
 
         try {
