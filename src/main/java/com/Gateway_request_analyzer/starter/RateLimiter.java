@@ -165,17 +165,11 @@ public class RateLimiter {
 
  }
 
- //TODO: Make buffered multi function handling reconnect speed
 
- private void checkDBTimeframe(){
-
- }
 
 
  protected void insertDB(Event e){
-   AtomicInteger value = new AtomicInteger();
 
-   //String key = s + ':' + currentUnix;
 
    //TODO: max pool size reached when doing it this way, implement Multi
 
@@ -206,8 +200,6 @@ public class RateLimiter {
    String eventMinute = s + ':' + currentMinute;
    redis.incr(eventMinute).onComplete(handler -> {
 
-     if(!handler.result().toString().equals("QUEUED") ){
-
        if(handler.result().toInteger() >= MAX_REQUESTS_PER_1MIN){
            Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
            setSortedBlocked(currentAction);
@@ -217,12 +209,54 @@ public class RateLimiter {
             setExpiry(eventMinute, EXPIRY_TIME);
          }
 
-     }
-
    }).onFailure(err -> {
      System.out.println("Error adding " + s + " to database: " + err.getMessage());
    });
+   checkDBTimeframe(s, type, currentMinute, eventMinute);
+
  }
+
+  //TODO: Make buffered multi function handling reconnect speed
+
+  private void checkDBTimeframe(String s, String type, String currentMinute, String key){
+
+   AtomicInteger value = new AtomicInteger();
+    List<String> prevKeys = new ArrayList<>();
+    //use redis multiget to get all requests, the createPrevKeyList is used to create the list used as a parameter.
+    redis.mget(createPrevKeyList(1, s, currentMinute, prevKeys)).onComplete(handler -> {
+      if(handler.succeeded()) {
+        int requests = value.get();
+        // Summation of all number of requests within time frame
+        Iterator<Response> it = handler.result().iterator();
+        while (it.hasNext()) {
+          Response r = it.next();
+          if (r == null) {
+            // requests += 0;
+          }
+          else {
+            requests += r.toInteger();
+          }
+        }
+        if (requests >= MAX_REQUESTS_TIMEFRAME) {
+          //add user to redis block-list
+          Action currentAction = new Action(s, "blockedBy" + type, FIVE_MINUTES_MILLIS, "single", "rateLimiter");
+          setSortedBlocked(currentAction);
+          this.publish(currentAction);
+        }
+        else {
+          redis.incr(key).onComplete(handlerIncr -> {
+            if (handlerIncr.succeeded()) {
+              System.out.println(" Allow request for " + key);
+            }
+            else {
+              System.out.println("Increment failed in Redis: " + handlerIncr.cause());
+            }
+          });
+        }
+      }
+    });
+
+  }
 
   /**
    * Method for creating a list of previous keys within the time frame using recursion
