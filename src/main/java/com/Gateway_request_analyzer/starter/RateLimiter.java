@@ -48,10 +48,10 @@ public class RateLimiter {
   }
 
   /**
-  * Function for setting expiry times to Redis key sets
+   * Function for setting expiry times to Redis key sets
    * @param key - Name of data set
    * @param time - Time of expiry
-  * */
+   * */
 
   private void setExpiry(String key, int time){
     List<String> expParams = new ArrayList<>();
@@ -64,163 +64,42 @@ public class RateLimiter {
     });
   }
 
-  /**
-   * Method for saving a key and value in the database. If succeeded it will add an expiry time to the key.
-   * @param key- a new key not already existing in the database.
-   */
- private void saveKeyValue(String key) {
-   redis.setnx(key, "0").onComplete(setHandler -> {
-     if (setHandler.succeeded()) {
-       setExpiry(key, EXPIRY_TIME);
-     }
-     else {
-       System.out.println("Couldn't set value at given key");
-     }
-   });
- }
 
-  /**
-   * Method for unpacking an incoming event and checking the database with each parameter within the event.
-   * @param event- an event object containing identifying features for an event.
-   */
- public void unpackEvent(Event event){
-   checkDatabase(event.getIp(), "Ip");
-   checkDatabase(event.getSession(), "Session");
-   checkDatabase(event.getUserId(), "UserId");
+  protected void insertDB(Event e){
+
+
+    insertDBValue(e.getIp(), "Ip");
+    insertDBValue(e.getSession(), "Session");
+    insertDBValue(e.getUserId(), "UserId");
+
   }
 
-  /**
-   * Method for checking if a key exists in the database. If it exists the value is incremented. If not,
-   * it calls setValue and creates a new key. If the value being incremented is more than expiry time, the requests are too many.
-   * @param s-  a string representing a key in the database. Will create a new key = s if it does not exist.
-   */
- private void checkDatabase(String s, String type) {
-   AtomicInteger value = new AtomicInteger();
-   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
-   String key = s + ":" + currentMinute;
+  private void insertDBValue(String s, String type){
+    String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
+    String eventMinute = s + ':' + currentMinute;
+    redis.incr(eventMinute).onComplete(handler -> {
 
-   /**
-    * Kan man undvika att göra en Get?
-    * Annars, gör en multi-pipeline, alternativt med lua-script.
-    * */
+      if(handler.result().toInteger() >= MAX_REQUESTS_PER_1MIN){
+        Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
+        setSortedBlocked(currentAction);
+        this.publish(currentAction);
+      } else if(handler.result().toInteger() == 1){
+        System.out.println("Adding block timer for: " + eventMinute);
+        setExpiry(eventMinute, EXPIRY_TIME);
+      }
 
-   redis.get(key).onComplete( getHandler -> {
-     if (getHandler.succeeded()) {
+    }).onFailure(err -> {
+      System.out.println("Error adding " + s + " to database: " + err.getMessage());
+    });
+    checkDBTimeframe(s, type, currentMinute, eventMinute);
 
-       //Create key for current minute if it does not exist
-       if (getHandler.result() == null){
-           System.out.println("Key created: " + key);
-           saveKeyValue(key);
-       }
-       else {
-         //Checks if limit for requests are reached the current minute
-         value.set(Integer.parseInt(getHandler.result().toString()));
-         if (value.get() >= MAX_REQUESTS_PER_1MIN) {
-           //add user to redis block-list
-           Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
-           setSortedBlocked(currentAction);
-           this.publish(currentAction);
-           return;
-         }
-       }
-       List<String> prevKeys = new ArrayList<>();
-       //use redis multiget to get all requests, the createPrevKeyList is used to create the list used as a parameter.
-       redis.mget(createPrevKeyList(1, s, currentMinute, prevKeys)).onComplete(handler -> {
-         if(handler.succeeded()) {
-           int requests = value.get();
-           // Summation of all number of requests within time frame
-           Iterator<Response> it = handler.result().iterator();
-           while (it.hasNext()) {
-             Response r = it.next();
-             if (r == null) {
-              // requests += 0;
-             }
-             else {
-               requests += r.toInteger();
-             }
-           }
-           if (requests >= MAX_REQUESTS_TIMEFRAME) {
-             //add user to redis block-list
-             Action currentAction = new Action(s, "blockedBy" + type, FIVE_MINUTES_MILLIS, "single", "rateLimiter");
-             setSortedBlocked(currentAction);
-             this.publish(currentAction);
-           }
-           else {
-             redis.incr(key).onComplete(handlerIncr -> {
-               if (handlerIncr.succeeded()) {
-                 System.out.println(" Allow request for " + key);
-               }
-               else {
-                 System.out.println("Increment failed in Redis: " + handlerIncr.cause());
-               }
-             });
-           }
-         }
-       });
-     }
-     if (getHandler.failed()) {
-       System.out.println("Couldn't get value at key");
-     }
-   });
-
- }
+  }
 
 
-
-
- protected void insertDB(Event e){
-
-
-   //TODO: max pool size reached when doing it this way, implement Multi
-
-   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
-   String eventIp = e.getIp() + ':' + currentMinute;
-   String eventSession = e.getSession() + ':' + currentMinute;
-   String eventUserId = e.getUserId() + ':' + currentMinute;
-
-
-      /**
-       * Add redis multi if buffering thousands of requests to allow one response.
-       * */
-    /*
-      redis.multi(handler -> {
-        insertDBValue(e.getIp(), "Ip");
-        insertDBValue(e.getSession(), "Session");
-        insertDBValue(e.getUserId(), "UserId");
-      });
-*/
-   insertDBValue(e.getIp(), "Ip");
-   insertDBValue(e.getSession(), "Session");
-   insertDBValue(e.getUserId(), "UserId");
-
- }
-
- private void insertDBValue(String s, String type){
-   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
-   String eventMinute = s + ':' + currentMinute;
-   redis.incr(eventMinute).onComplete(handler -> {
-
-       if(handler.result().toInteger() >= MAX_REQUESTS_PER_1MIN){
-           Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
-           setSortedBlocked(currentAction);
-           this.publish(currentAction);
-         } else if(handler.result().toInteger() == 1){
-           System.out.println("Adding block timer for: " + eventMinute);
-            setExpiry(eventMinute, EXPIRY_TIME);
-         }
-
-   }).onFailure(err -> {
-     System.out.println("Error adding " + s + " to database: " + err.getMessage());
-   });
-   checkDBTimeframe(s, type, currentMinute, eventMinute);
-
- }
-
-  //TODO: Make buffered multi function handling reconnect speed
 
   private void checkDBTimeframe(String s, String type, String currentMinute, String key){
 
-   AtomicInteger value = new AtomicInteger();
+    AtomicInteger value = new AtomicInteger();
     List<String> prevKeys = new ArrayList<>();
     //use redis multiget to get all requests, the createPrevKeyList is used to create the list used as a parameter.
     redis.mget(createPrevKeyList(1, s, currentMinute, prevKeys)).onComplete(handler -> {
@@ -266,51 +145,37 @@ public class RateLimiter {
    * @param list - a list for storing all previous keys
    * @return list of all possible previous keys within the time frame
    */
- private List<String> createPrevKeyList (int i, String s, String baseMinute, List<String> list) {
-   if ( i > (EXPIRY_TIME / 60)) {
-     return list;
-   }
-   else {
-     int prevMinute = (Integer.parseInt(baseMinute) - i) % 60;
-     String newKey =  s + ":" + prevMinute;
-     list.add(newKey);
-     return createPrevKeyList(i+1, s, baseMinute, list);
-   }
- }
+  private List<String> createPrevKeyList (int i, String s, String baseMinute, List<String> list) {
+    if ( i > (EXPIRY_TIME / 60)) {
+      return list;
+    }
+    else {
+      int prevMinute = (Integer.parseInt(baseMinute) - i) % 60;
+      String newKey =  s + ":" + prevMinute;
+      list.add(newKey);
+      return createPrevKeyList(i+1, s, baseMinute, list);
+    }
+  }
 
 
- private void setSortedBlocked(Action action){
+  private void setSortedBlocked(Action action){
 
-   String currentTime = String.valueOf(System.currentTimeMillis());
-   List<String> params = new ArrayList<>();
+    String currentTime = String.valueOf(System.currentTimeMillis());
+    List<String> params = new ArrayList<>();
 
-   //ZADD saveState 100 '{"actionType":"blockByUserId","value":"user1","source":"rateLimiter"}'
+    //ZADD saveState 100 '{"actionType":"blockByUserId","value":"user1","source":"rateLimiter"}'
 
 
 
-   params.add("saveState");
-   params.add(action.timeString());
-   params.add(action.toJson().toString());
+    params.add("saveState");
+    params.add(action.timeString());
+    params.add(action.toJson().toString());
 
-   redis.zadd(params);
-   redis.zremrangebyscore("saveState", "-inf", currentTime);
+    redis.zadd(params);
+    redis.zremrangebyscore("saveState", "-inf", currentTime);
 
- }
-/*
- public void getSaveState(ServerWebSocket socket){
-   completeSaveState = new JsonObject();
-   completeSaveState.put("publishType", "saveState");
+  }
 
-   CompositeFuture.all(List.of(
-     serializeSet("saveState"))
-     //serializeSet("sessions"),
-     //serializeSet("userIds"))
-   ).onComplete(handler -> {
-
-     socket.writeBinaryMessage(completeSaveState.toBuffer());
-   });
- }
-*/
 
   public void getSaveState(Consumer<Buffer> onTest, Consumer<String> onTestFailure){
 
@@ -327,11 +192,11 @@ public class RateLimiter {
       Iterator<Response> it = handler.iterator();
 
       while(it.hasNext()){
-          Response response = it.next();
-          JsonObject value = new JsonObject(String.valueOf(response));
-          saveState.put(value.getString("value"), value);
-        }
-          onTest.accept(saveState.toBuffer());
+        Response response = it.next();
+        JsonObject value = new JsonObject(String.valueOf(response));
+        saveState.put(value.getString("value"), value);
+      }
+      onTest.accept(saveState.toBuffer());
 
     }).onFailure(err -> {
       System.out.println("Failed to retrieve sorted set: " + err);
@@ -339,89 +204,6 @@ public class RateLimiter {
 
     });
   }
-
-
- /**
-  * Adds blocked items to SaveStatelist named "Blocked:x" where x is the current minute
-  * @param s - Name of blocked identifier (user/ip/session)
-  * */
- private void setBlockedList(String s){
-   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
-   String key = "Blocked:" + currentMinute;
-   List<String> param = new ArrayList<>();
-   param.add(key);
-   param.add(s);
-   // Create a sortedSet instead of set with a timestamp of the expirytime
-   // Check all expieries when adding a value
-   // Add a single key/value pair with type and expriery
-   redis.get(key).onComplete(handler -> {
-     //check if set already exists, add expiry-time if it doesn't
-     if(handler.result() == null){
-       redis.sadd(param).onComplete(comp -> {
-         if(comp.succeeded()){
-           setExpiry(key, 60);
-         } else {
-           System.out.println("Error in making blocked set");
-         }
-       });
-     //if set already does exist, simply add identifier(user/ip/session) to set
-     } else {
-        redis.sadd(param).onSuccess(success -> {
-          System.out.println("Successfully added IP to key: " + s);
-        }).onFailure(err -> {
-          System.out.println("Error in adding to blockedlist: " + err.getMessage());
-        });
-     }
-   });
-
- }
-
-  /**
-   * This method is used to publish the saveState
-   *
-   * Fetches the set of identifiers(user/ip/session) blocked for the current minute
-   * and parses them to a JsonObject with format "i":"identifier" where
-   * i = {0,1,2,...,n - 1}, n = number of blocked identifiers
-   *
-   * Finally, publishes this JsonObject to pub/sub
-   */
- public void publishBlockedSet(){
-
-   // When fetching saveState sortedSet, also multiget all members for type
-   JsonObject jsonBlockList = new JsonObject();
-   jsonBlockList.put("type", "saveState");
-
-   String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
-   String key = "Blocked:" + currentMinute;
-
-   //fetch blocked identifiers
-   redis.smembers(key).onComplete(handler -> {
-     Iterator<Response> it = handler.result().iterator();
-     int i = 0;
-     while(it.hasNext()){
-       String identifier = it.next().toString();
-       System.out.println(identifier);
-       jsonBlockList.put(Integer.toString(i), identifier);
-       i++;
-     }
-
-     Buffer buf = jsonBlockList.toBuffer();
-
-
-     // This should not be published, return list instead
-     // Need to add
-     pub.send(Request.cmd(Command.PUBLISH)
-       .arg("channel1").arg(buf))
-       .onFailure(err ->{
-         System.out.println("Failed to publish blocked-list to pub/sub");
-       });
-
-
-   }).onFailure(err -> {
-     System.out.println("Error in fetching currently blocked set: " + err.getMessage());
-   });
- }
-
 
   /**
    * Method for publishing action decided by the rate limiter with pub/sub.
@@ -432,9 +214,9 @@ public class RateLimiter {
     Buffer buf = action.toJson().toBuffer();
     this.pub.send(Request.cmd(Command.PUBLISH)
         .arg("channel1").arg(buf))
-        .onFailure(err -> {
-          System.out.println("Failed to publish single action to pub/sub: " + err.getCause());
-        });
+      .onFailure(err -> {
+        System.out.println("Failed to publish single action to pub/sub: " + err.getCause());
+      });
   }
 }
 
