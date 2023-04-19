@@ -5,10 +5,7 @@ import io.vertx.core.*;
 import io.vertx.redis.client.*;
 import io.vertx.redis.client.RedisOptions;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -38,7 +35,8 @@ public class ServerVerticle extends AbstractVerticle {
       )
     ).onComplete(handler -> {
       databaseConnection(vertx);
-      RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub);
+      MachineLearningClient helper = new MachineLearningClient(this.redis, this.vertx);
+      RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub, helper);
       GRAserver server = new GRAserver(vertx, rateLimiter, this.sub, this.port);
 
     }).onFailure(error -> {

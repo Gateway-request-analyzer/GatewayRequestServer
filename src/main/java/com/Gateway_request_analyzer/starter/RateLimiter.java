@@ -29,22 +29,24 @@ public class RateLimiter {
   //Allow for rate limiting on IP, user identifier, and user session
   private RedisAPI redis;
   private RedisConnection pub;
-  private static final int MAX_REQUESTS_PER_1MIN = 5;
-  private static final int MAX_REQUESTS_TIMEFRAME = 12;
+  private static final int MAX_REQUESTS_PER_1MIN = 20;
+  private static final int MAX_REQUESTS_TIMEFRAME = 40;
   private static final long ONE_MINUTE_MILLIS = 60000;
   private static final long FIVE_MINUTES_MILLIS = 300000;
 
   private static final int EXPIRY_TIME = 180;
   private JsonObject completeSaveState = new JsonObject();
+  private MachineLearningClient MlClient;
 
   /**
    * Constructor for class RateLimiter.
    * @param redis- initializes the redis variable to interact with the database.
    * @param pub- initializes the pub variable to publish actions.
    */
-  public RateLimiter(RedisAPI redis, RedisConnection pub) {
+  public RateLimiter(RedisAPI redis, RedisConnection pub, MachineLearningClient MlClient) {
     this.redis = redis;
     this.pub = pub;
+    this.MlClient = MlClient;
   }
 
   /**
@@ -67,7 +69,7 @@ public class RateLimiter {
 
   protected void insertDB(Event e){
 
-
+    MlClient.insertRedisList(e);
     insertDBValue(e.getIp(), "Ip");
     insertDBValue(e.getSession(), "Session");
     insertDBValue(e.getUserId(), "UserId");
