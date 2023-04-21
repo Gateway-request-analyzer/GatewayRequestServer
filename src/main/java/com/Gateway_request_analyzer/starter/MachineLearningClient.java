@@ -5,6 +5,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpMethod;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.redis.client.*;
@@ -63,7 +64,7 @@ public class MachineLearningClient {
       System.out.println("Current length value for ML: " + handler.result().toInteger());
       if(handler.result().toInteger() >= 49){
 
-        redis.lpush(insertion).onFailure(err -> {
+        redis.rpush(insertion).onFailure(err -> {
           System.out.println("Error adding element to Redis");
         });
 
@@ -74,13 +75,13 @@ public class MachineLearningClient {
         sendPostRequest(userId);
 
       } else if(handler.result().toInteger() >= 10){
-        redis.lpush(insertion, pushHandler -> {
+        redis.rpush(insertion, pushHandler -> {
           sendPostRequest(userId);
         });
       }
       else {
 
-        redis.lpush(insertion, pushHandler -> {
+        redis.rpush(insertion, pushHandler -> {
           if(handler.result().toInteger() <= 1){
             System.out.println("Set expiry time");
             setRedisExpiry(userId);
@@ -108,12 +109,13 @@ public class MachineLearningClient {
     System.out.println("Sending to ML-server");
 
     redis.lrange(userId, "0", "-1").onComplete(handler -> {
-      JsonObject jo = new JsonObject(handler.result().toString());
-      System.out.println(jo);
+      JsonArray jo = new JsonArray(handler.result().toString());
+      System.out.println("this is the jo: " + jo);
       client
-        .post(8090, "127.0.0.1", "/anomaly")
-        .sendBuffer(handler.result().toBuffer())
+        .post(8090, "host.docker.internal", "/anomaly")
+        .sendJson(jo)
         .onSuccess(res -> {
+          System.out.println("This is response: " + res);
           this.handleMlResponse(res.bodyAsJsonObject());
         });
 

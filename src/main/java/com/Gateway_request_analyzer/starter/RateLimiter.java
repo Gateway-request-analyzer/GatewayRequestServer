@@ -29,8 +29,8 @@ public class RateLimiter {
   //Allow for rate limiting on IP, user identifier, and user session
   private RedisAPI redis;
   private RedisConnection pub;
-  private static final int MAX_REQUESTS_PER_1MIN = 20;
-  private static final int MAX_REQUESTS_TIMEFRAME = 40;
+  private static final int MAX_REQUESTS_PER_1MIN = 100;
+  private static final int MAX_REQUESTS_TIMEFRAME = 300;
   private static final long ONE_MINUTE_MILLIS = 60000;
   private static final long FIVE_MINUTES_MILLIS = 300000;
 
