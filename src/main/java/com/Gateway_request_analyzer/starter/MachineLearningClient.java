@@ -112,7 +112,7 @@ public class MachineLearningClient {
       JsonArray jo = new JsonArray(handler.result().toString());
       System.out.println("this is the jo: " + jo);
       client
-        .post(8090, "host.docker.internal", "/anomaly")
+        .post(8090, "172.20.0.41", "/anomaly")
         .sendJson(jo)
         .onSuccess(res -> {
           System.out.println("This is response: " + res);
