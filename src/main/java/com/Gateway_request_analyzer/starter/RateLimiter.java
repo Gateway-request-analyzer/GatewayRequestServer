@@ -179,7 +179,7 @@ public class RateLimiter {
   }
 
 
-  public void getSaveState(Consumer<Buffer> onTest, Consumer<String> onTestFailure){
+  public void getSaveState(Consumer<Buffer> onSuccess, Consumer<String> onFailure){
 
     JsonObject saveState = new JsonObject();
     saveState.put("publishType", "saveState");
@@ -198,11 +198,11 @@ public class RateLimiter {
         JsonObject value = new JsonObject(String.valueOf(response));
         saveState.put(value.getString("value"), value);
       }
-      onTest.accept(saveState.toBuffer());
+      onSuccess.accept(saveState.toBuffer());
 
     }).onFailure(err -> {
       System.out.println("Failed to retrieve sorted set: " + err);
-      onTestFailure.accept("Failed to fetch saveState: " + err.getCause());
+      onFailure.accept("Failed to fetch saveState: " + err.getCause());
 
     });
   }
