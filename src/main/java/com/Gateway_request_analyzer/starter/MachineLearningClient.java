@@ -64,7 +64,7 @@ public class MachineLearningClient {
       System.out.println("Current length value for ML: " + handler.result().toInteger());
       if(handler.result().toInteger() >= 49){
 
-        redis.rpush(insertion).onFailure(err -> {
+        redis.lpush(insertion).onFailure(err -> {
           System.out.println("Error adding element to Redis");
         });
 
@@ -75,13 +75,13 @@ public class MachineLearningClient {
         sendPostRequest(userId);
 
       } else if(handler.result().toInteger() >= 10){
-        redis.rpush(insertion, pushHandler -> {
+        redis.lpush(insertion, pushHandler -> {
           sendPostRequest(userId);
         });
       }
       else {
 
-        redis.rpush(insertion, pushHandler -> {
+        redis.lpush(insertion, pushHandler -> {
           if(handler.result().toInteger() <= 1){
             System.out.println("Set expiry time");
             setRedisExpiry(userId);
