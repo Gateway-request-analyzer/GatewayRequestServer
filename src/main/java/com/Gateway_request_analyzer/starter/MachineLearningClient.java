@@ -8,6 +8,7 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.redis.client.*;
 
 import java.util.ArrayList;
@@ -60,21 +61,21 @@ public class MachineLearningClient {
     insertion.add(userId);
     insertion.add(jsonString);
     redis.llen(userId).onComplete(handler -> {
-
-      System.out.println("Current length value for ML: " + handler.result().toInteger());
-      if(handler.result().toInteger() >= 49){
+      int currentVal = handler.result().toInteger();
+      System.out.println("Current length value for ML: " + currentVal);
+      if(currentVal >= 49){
 
         redis.lpush(insertion).onFailure(err -> {
           System.out.println("Error adding element to Redis");
         });
 
         redis.ltrim(userId, "0", "49").onFailure(err -> {
-          System.out.println("Error trimming list");
+          System.out.println("Error trimming list in MachineLearningClient");
         });
 
         sendPostRequest(userId);
 
-      } else if(handler.result().toInteger() >= 10){
+      } else if(currentVal >= 20){
         redis.lpush(insertion, pushHandler -> {
           sendPostRequest(userId);
         });
@@ -106,17 +107,18 @@ public class MachineLearningClient {
 
   private void sendPostRequest(String userId){
 
-    System.out.println("Sending to ML-server");
-
     redis.lrange(userId, "0", "-1").onComplete(handler -> {
       JsonArray jo = new JsonArray(handler.result().toString());
-      System.out.println("this is the jo: " + jo);
       client
         .post(8090, "172.20.0.41", "/anomaly")
         .sendJson(jo)
         .onSuccess(res -> {
-          System.out.println("This is response: " + res);
-          this.handleMlResponse(res.bodyAsJsonObject());
+          System.out.println("This is response: " + res.bodyAsString());
+          try{
+            this.handleMlResponse(res.bodyAsJsonArray());
+          } catch(Exception e){
+            System.out.println("Error in sendPostRequest return val: " + e.getMessage());
+          }
         });
 
     }).onFailure(err -> {
@@ -124,7 +126,7 @@ public class MachineLearningClient {
     });
   }
 
-  private void handleMlResponse(JsonObject jo){
+  private void handleMlResponse(JsonArray jo){
     System.out.println("Result returned from ML: " + jo.toString());
   }
 

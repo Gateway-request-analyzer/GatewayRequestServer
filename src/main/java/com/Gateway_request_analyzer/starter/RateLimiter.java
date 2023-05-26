@@ -1,23 +1,15 @@
 package com.Gateway_request_analyzer.starter;
 
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.ServerWebSocket;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.redis.client.*;
-import io.vertx.redis.client.impl.RedisClient;
 
-import java.security.Provider;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Class that uses the connection to Redis database and checks if client should be rate limited.
@@ -29,12 +21,12 @@ public class RateLimiter {
   //Allow for rate limiting on IP, user identifier, and user session
   private RedisAPI redis;
   private RedisConnection pub;
-  private static final int MAX_REQUESTS_PER_1MIN = 100;
-  private static final int MAX_REQUESTS_TIMEFRAME = 300;
+  private static final int MAX_REQUESTS_1MIN = 1000;
+  private static final int MAX_REQUESTS_5MIN = 3000;
   private static final long ONE_MINUTE_MILLIS = 60000;
   private static final long FIVE_MINUTES_MILLIS = 300000;
 
-  private static final int EXPIRY_TIME = 180;
+  private static final int EXPIRY_TIME = 300;
   private JsonObject completeSaveState = new JsonObject();
   private MachineLearningClient MlClient;
 
@@ -68,7 +60,6 @@ public class RateLimiter {
 
 
   protected void insertDB(Event e){
-
     MlClient.insertRedisList(e);
     insertDBValue(e.getIp(), "Ip");
     insertDBValue(e.getSession(), "Session");
@@ -79,13 +70,15 @@ public class RateLimiter {
   private void insertDBValue(String s, String type){
     String currentMinute = new SimpleDateFormat("mm").format(new java.util.Date());
     String eventMinute = s + ':' + currentMinute;
-    redis.incr(eventMinute).onComplete(handler -> {
+    redis.incr(eventMinute).onSuccess(handler -> {
 
-      if(handler.result().toInteger() >= MAX_REQUESTS_PER_1MIN){
+      int currentVal = handler.toInteger();
+      System.out.println("Current incr return: " + currentVal);
+      if(currentVal >= MAX_REQUESTS_1MIN){
         Action currentAction = new Action(s, "blockedBy" + type, ONE_MINUTE_MILLIS, "single", "rateLimiter");
         setSortedBlocked(currentAction);
         this.publish(currentAction);
-      } else if(handler.result().toInteger() == 1){
+      } else if(currentVal == 1){
         System.out.println("Adding block timer for: " + eventMinute);
         setExpiry(eventMinute, EXPIRY_TIME);
       }
@@ -118,21 +111,14 @@ public class RateLimiter {
             requests += r.toInteger();
           }
         }
-        if (requests >= MAX_REQUESTS_TIMEFRAME) {
+        if (requests >= MAX_REQUESTS_5MIN) {
           //add user to redis block-list
           Action currentAction = new Action(s, "blockedBy" + type, FIVE_MINUTES_MILLIS, "single", "rateLimiter");
           setSortedBlocked(currentAction);
           this.publish(currentAction);
         }
         else {
-          redis.incr(key).onComplete(handlerIncr -> {
-            if (handlerIncr.succeeded()) {
-              System.out.println(" Allow request for " + key);
-            }
-            else {
-              System.out.println("Increment failed in Redis: " + handlerIncr.cause());
-            }
-          });
+          System.out.println("Request allowed for 5 minute timeframe: " + key);
         }
       }
     });
