@@ -85,7 +85,7 @@ public class TokenAuthorizer {
       .get(8080, "auth-server", "/.well-known/jwks.json")
       .send()
       .onSuccess(response -> {
-        timer = 1;
+        timer = 3;
 
         JsonObject res = new JsonObject(response.bodyAsString());
         this.kid = res.getJsonArray("keys").getJsonObject(0).getString("kid");

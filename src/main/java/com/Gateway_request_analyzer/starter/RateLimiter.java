@@ -2,6 +2,7 @@ package com.Gateway_request_analyzer.starter;
 
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.WebClient;
 import io.vertx.redis.client.*;
 
 import java.text.SimpleDateFormat;
@@ -28,17 +29,17 @@ public class RateLimiter {
 
   private static final int EXPIRY_TIME = 300;
   private JsonObject completeSaveState = new JsonObject();
-  private MachineLearningClient MlClient;
+  private MachineLearningClient mlClient;
 
   /**
    * Constructor for class RateLimiter.
    * @param redis- initializes the redis variable to interact with the database.
    * @param pub- initializes the pub variable to publish actions.
    */
-  public RateLimiter(RedisAPI redis, RedisConnection pub, MachineLearningClient MlClient) {
+  public RateLimiter(RedisAPI redis, RedisConnection pub, WebClient webClient) {
     this.redis = redis;
     this.pub = pub;
-    this.MlClient = MlClient;
+    this.mlClient = new MachineLearningClient(redis, webClient, this::publish);
   }
 
   /**
@@ -60,7 +61,7 @@ public class RateLimiter {
 
 
   protected void insertDB(Event e){
-    MlClient.insertRedisList(e);
+    mlClient.insertRedisList(e);
     insertDBValue(e.getIp(), "Ip");
     insertDBValue(e.getSession(), "Session");
     insertDBValue(e.getUserId(), "UserId");

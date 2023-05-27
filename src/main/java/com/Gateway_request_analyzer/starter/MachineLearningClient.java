@@ -13,6 +13,7 @@ import io.vertx.redis.client.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * REQUIRED:
@@ -25,13 +26,19 @@ public class MachineLearningClient {
 
   private WebClient client;
   private RedisAPI redis;
+  private Consumer<Action> publishMethodReference;
+
+  private int currentVal;
+
+  private static final long SPAMMER_BLOCKED_MILLIS = 7200000;
 
   private static final int EXPIRY_3H = 10800;
   private static final long EXPIRY_3H_MILLIS = 10800000;
 
-  public MachineLearningClient(RedisAPI redis, Vertx vertx){
+  public MachineLearningClient(RedisAPI redis, WebClient webClient, Consumer<Action> publishMethodReference){
     this.redis = redis;
-    this.client = WebClient.create(vertx);
+    this.client = webClient;
+    this.publishMethodReference = publishMethodReference;
   }
 
   private JsonObject createJsonObject(String userID, String session, String URL){
@@ -61,9 +68,9 @@ public class MachineLearningClient {
     insertion.add(userId);
     insertion.add(jsonString);
     redis.llen(userId).onComplete(handler -> {
-      int currentVal = handler.result().toInteger();
-      System.out.println("Current length value for ML: " + currentVal);
-      if(currentVal >= 49){
+      this.currentVal = handler.result().toInteger();
+      System.out.println("Current length value for ML: " + this.currentVal);
+      if(this.currentVal >= 49){
 
         redis.lpush(insertion).onFailure(err -> {
           System.out.println("Error adding element to Redis");
@@ -115,7 +122,7 @@ public class MachineLearningClient {
         .onSuccess(res -> {
           System.out.println("This is response: " + res.bodyAsString());
           try{
-            this.handleMlResponse(res.bodyAsJsonArray());
+            this.handleMlResponse(res.bodyAsJsonArray().getJsonObject(0));
           } catch(Exception e){
             System.out.println("Error in sendPostRequest return val: " + e.getMessage());
           }
@@ -126,8 +133,25 @@ public class MachineLearningClient {
     });
   }
 
-  private void handleMlResponse(JsonArray jo){
-    System.out.println("Result returned from ML: " + jo.toString());
+  private void handleMlResponse(JsonObject jo){
+    String action = jo.getString("action");
+    String user = jo.getString("user");
+
+    if(action.equals("block")){
+      Action currentAction = new Action(user, "blockedByUserId", SPAMMER_BLOCKED_MILLIS, "single", "ML");
+      publishMethodReference.accept(currentAction);
+
+      System.out.println("User " + user + " was blocked by ML after " + this.currentVal + " requests");
+
+    }else if(action.equals("verify")){
+      Action currentAction = new Action(user, "verify", SPAMMER_BLOCKED_MILLIS, "single", "ML");
+      publishMethodReference.accept(currentAction);
+
+      System.out.println("User " + user + " needs to be verified after " + this.currentVal + " requests");
+
+    }else {
+      System.out.println("User " + user + " is OK after " + this.currentVal + " requests");
+    }
   }
 
 }

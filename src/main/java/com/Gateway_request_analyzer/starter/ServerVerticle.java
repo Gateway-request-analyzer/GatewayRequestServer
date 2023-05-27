@@ -2,6 +2,7 @@ package com.Gateway_request_analyzer.starter;
 
 import io.vertx.config.ConfigRetriever;
 import io.vertx.core.*;
+import io.vertx.ext.web.client.WebClient;
 import io.vertx.redis.client.*;
 import io.vertx.redis.client.RedisOptions;
 
@@ -35,8 +36,7 @@ public class ServerVerticle extends AbstractVerticle {
       )
     ).onComplete(handler -> {
       databaseConnection(vertx);
-      MachineLearningClient helper = new MachineLearningClient(this.redis, this.vertx);
-      RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub, helper);
+      RateLimiter rateLimiter = new RateLimiter(this.redis, this.pub, WebClient.create(vertx));
       GRAserver server = new GRAserver(vertx, rateLimiter, this.sub, this.port);
 
     }).onFailure(error -> {
