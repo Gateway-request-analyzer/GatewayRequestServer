@@ -22,9 +22,7 @@ To run your application:
 ```
 == Building with docker
 
-To start redis server with correct config (path may vary):
-```
-redis-server /usr/local/etc/redis.conf
+All of the commands below are to be executed from the mother folder, GRA-docker
 ```
 
 To re-build the project with docker:
@@ -35,6 +33,11 @@ docker compose build
 To run the project with docker:
 ```
 docker compose up
+```
+
+To remove all data  in the current build with docker:
+```
+docker compose down
 ```
 
 == Help
