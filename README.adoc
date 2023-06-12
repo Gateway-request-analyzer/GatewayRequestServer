@@ -23,7 +23,6 @@ To run your application:
 == Building with docker
 
 All of the commands below are to be executed from the mother folder, GRA-docker
-```
 
 To re-build the project with docker:
 ```
